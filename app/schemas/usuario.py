@@ -1,0 +1,85 @@
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+
+from app.models.enums import EstadoBasico, EstadoVerificacion, RolUsuario
+
+
+class UsuarioCreate(BaseModel):
+    nombre: str
+    apellido: str
+    email: EmailStr
+    telefono: Optional[str] = None
+    password: str
+    rol: RolUsuario
+
+
+class UsuarioOut(BaseModel):
+    id: int
+    nombre: str
+    apellido: str
+    email: EmailStr
+    telefono: Optional[str]
+    rol: RolUsuario
+    estado: EstadoBasico
+    fecha_registro: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    rol: RolUsuario
+
+
+class ClienteCreate(BaseModel):
+    usuario_id: int
+    direccion: Optional[str] = None
+
+
+class ClienteOut(BaseModel):
+    id: int
+    usuario_id: int
+    direccion: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class ProveedorCreate(BaseModel):
+    usuario_id: int
+    nombre_empresa: str
+    ruc: str
+    descripcion: Optional[str] = None
+    distrito: str
+    capacidad_humana_total: Optional[int] = 0
+
+
+class ProveedorUpdate(BaseModel):
+    nombre_empresa: Optional[str] = None
+    descripcion: Optional[str] = None
+    distrito: Optional[str] = None
+    capacidad_humana_total: Optional[int] = None
+
+
+class ProveedorOut(BaseModel):
+    id: int
+    usuario_id: int
+    nombre_empresa: str
+    ruc: str
+    descripcion: Optional[str]
+    distrito: str
+    calificacion_promedio: float
+    estado_verificacion: EstadoVerificacion
+    capacidad_humana_total: int
+
+    class Config:
+        from_attributes = True
