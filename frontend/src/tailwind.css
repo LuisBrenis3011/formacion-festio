@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 theme tokens — mapped to Festio's teal/coral/gold palette.
+ * shadcn/ui components reference these via bg-card, text-primary, etc.
+ */
+
+@theme {
+  --color-background: hsl(40 20% 98.4%);
+  --color-foreground: hsl(150 19.2% 10.4%);
+
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(150 19.2% 10.4%);
+
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(150 19.2% 10.4%);
+
+  --color-primary: hsl(175 89.1% 26.1%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-secondary: hsl(140 8.9% 94.5%);
+  --color-secondary-foreground: hsl(150 19.2% 10.4%);
+
+  --color-muted: hsl(140 8.9% 94.5%);
+  --color-muted-foreground: hsl(150 6.3% 41.8%);
+
+  --color-accent: hsl(37 76.4% 43.5%);
+  --color-accent-foreground: hsl(0 0% 100%);
+
+  --color-destructive: hsl(6 73.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+
+  --color-border: hsl(143 12.2% 87.1%);
+  --color-input: hsl(143 12.2% 87.1%);
+  --color-ring: hsl(175 89.1% 26.1%);
+
+  --radius: 0.75rem;
+}

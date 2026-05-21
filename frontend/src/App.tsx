@@ -21,15 +21,15 @@ import {
   checkoutSimulado,
   listarServiciosProveedor,
   prebloquearReserva,
-  recomendarEvento,
 } from "./api";
+import { useRecomendarEvento } from "./hooks/use-recomendar";
+import { ProviderGrid } from "./components/provider-grid";
 import type {
   CheckoutClienteCreate,
   CheckoutReservaResponse,
   ItemRecomendado,
   PreReservaResponse,
   ProveedorRecomendado,
-  RecomendacionResponse,
   ServicioProducto,
 } from "./types";
 
@@ -89,7 +89,6 @@ const money = new Intl.NumberFormat("es-PE", {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [query, setQuery] = useState("");
-  const [recommendation, setRecommendation] = useState<RecomendacionResponse | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<ProveedorRecomendado | null>(null);
   const [providerServices, setProviderServices] = useState<ServicioProducto[]>([]);
   const [extraQuantities, setExtraQuantities] = useState<Record<number, number>>({});
@@ -100,11 +99,13 @@ export default function App() {
   const [authTab, setAuthTab] = useState<AuthTab>("register");
   const [registerDraft, setRegisterDraft] = useState<RegisterDraft>(registerInitial);
   const [loginDraft, setLoginDraft] = useState(loginInitial);
-  const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // TanStack Query mutation — handles loading, error, and data
+  const searchMutation = useRecomendarEvento();
+  const recommendation = searchMutation.data ?? null;
   const principales = recommendation?.resultados_principales ?? [];
   const otras = recommendation?.otras_opciones ?? [];
 
@@ -146,7 +147,7 @@ export default function App() {
   const advance = roundMoney(total * 0.2);
   const localBalance = roundMoney(total * 0.8);
 
-  async function handleSearch(event?: FormEvent<HTMLFormElement>) {
+  function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     const cleanQuery = query.trim();
     if (!cleanQuery) {
@@ -154,24 +155,15 @@ export default function App() {
       return;
     }
 
-    setLoadingSearch(true);
     setError(null);
     setSelectedProvider(null);
     setPreReserva(null);
     setConfirmation(null);
 
-    try {
-      const response = await recomendarEvento({
-        mensaje: cleanQuery,
-        aforo_estimado: parseGuests(cleanQuery),
-      });
-      setRecommendation(response);
-      setScreen("results");
-    } catch (apiError) {
-      setError(readError(apiError));
-    } finally {
-      setLoadingSearch(false);
-    }
+    searchMutation.mutate(cleanQuery, {
+      onSuccess: () => setScreen("results"),
+      onError: (err) => setError(readError(err)),
+    });
   }
 
   async function openPackage(provider: ProveedorRecomendado) {
@@ -298,8 +290,8 @@ export default function App() {
                 placeholder="Ej: Show infantil de Spiderman para 30 niños este sábado..."
                 autoFocus
               />
-              <button type="submit" disabled={loadingSearch}>
-                {loadingSearch ? <Loader2 className="spin" size={22} /> : <Search size={22} />}
+              <button type="submit" disabled={searchMutation.isPending}>
+                {searchMutation.isPending ? <Loader2 className="spin" size={22} /> : <Search size={22} />}
               </button>
             </form>
 
@@ -319,7 +311,9 @@ export default function App() {
               ))}
             </div>
 
-            {error && <p className="inline-error">{error}</p>}
+            {(error || searchMutation.error) && (
+              <p className="inline-error">{error ?? readError(searchMutation.error)}</p>
+            )}
           </section>
         </main>
       )}
@@ -339,52 +333,14 @@ export default function App() {
 
           {error && <p className="inline-error">{error}</p>}
 
-          <section className="results-content">
-            {principales.length > 0 && (
-              <div className="results-group">
-                <h3 className="group-title">
-                  <Sparkles size={16} />
-                  Coincidencias ideales
-                </h3>
-                <div className="package-grid">
-                  {principales.map((provider) => (
-                    <PackageCard
-                      key={provider.proveedor_id}
-                      provider={provider}
-                      onClick={() => openPackage(provider)}
-                      disabled={loadingDetail}
-                      featured
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {otras.length > 0 && (
-              <div className="results-group secondary-results">
-                <h3 className="group-title">Otras alternativas para ti</h3>
-                <div className="package-grid compact">
-                  {otras.map((provider) => (
-                    <PackageCard
-                      key={provider.proveedor_id}
-                      provider={provider}
-                      onClick={() => openPackage(provider)}
-                      disabled={loadingDetail}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {principales.length === 0 && otras.length === 0 && (
-              <div className="empty-results">
-                <p>No encontramos opciones disponibles para esta búsqueda.</p>
-                <button className="primary-action" onClick={() => setScreen("home")}>
-                  Intentar otra búsqueda
-                </button>
-              </div>
-            )}
-          </section>
+          <ProviderGrid
+            principales={principales}
+            otras={otras}
+            isPending={searchMutation.isPending}
+            onSelect={(provider) => openPackage(provider)}
+            loadingDetail={loadingDetail}
+            onNewSearch={() => setScreen("home")}
+          />
         </main>
       )}
 
@@ -657,35 +613,7 @@ export default function App() {
   );
 }
 
-function PackageCard({
-  provider,
-  onClick,
-  disabled,
-  featured = false,
-}: {
-  provider: ProveedorRecomendado;
-  onClick: () => void;
-  disabled: boolean;
-  featured?: boolean;
-}) {
-  return (
-    <button
-      className={`package-card ${featured ? "featured" : ""}`}
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-    >
-      <span className="package-icon">
-        {featured ? <Sparkles size={24} /> : <Package size={24} />}
-      </span>
-      <div className="package-info">
-        <span className="provider-name">{provider.nombre_empresa}</span>
-        <strong>{provider.paquete.nombre}</strong>
-        <span className="package-price">{money.format(provider.paquete.precio_base)}</span>
-      </div>
-    </button>
-  );
-}
+// PackageCard is now replaced by ProviderCard (shadcn/ui) via ProviderGrid
 
 
 function PackageLine({ item }: { item: ItemRecomendado }) {
