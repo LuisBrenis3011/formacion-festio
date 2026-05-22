@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv() # Esto carga el .env antes de que el resto del código despierte
+from fastapi import FastAPI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings

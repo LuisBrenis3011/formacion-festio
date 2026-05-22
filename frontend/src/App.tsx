@@ -10,21 +10,23 @@ import {
   Package,
   PartyPopper,
   Plus,
-  Search,
   Sparkles,
   UserRound,
   Users,
   X,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkoutSimulado,
   listarServiciosProveedor,
   prebloquearReserva,
 } from "./api";
 import { useRecomendarEvento } from "./hooks/use-recomendar";
-import { ProviderGrid } from "./components/provider-grid";
+import { ChatBubble } from "./components/chat-bubble";
+import { ChatInput } from "./components/chat-input";
+import { TypingIndicator } from "./components/typing-indicator";
 import type {
+  ChatMessage,
   CheckoutClienteCreate,
   CheckoutReservaResponse,
   ItemRecomendado,
@@ -33,7 +35,8 @@ import type {
   ServicioProducto,
 } from "./types";
 
-type Screen = "home" | "results" | "detail" | "success";
+// ─── Screens ─────────────────────────────────────────────────────────────────
+type Screen = "chat" | "detail" | "success";
 type AuthTab = "login" | "register";
 
 type EventDraft = {
@@ -86,9 +89,22 @@ const money = new Intl.NumberFormat("es-PE", {
   currency: "PEN",
 });
 
+let messageIdCounter = 0;
+function nextId() {
+  return `msg-${++messageIdCounter}-${Date.now()}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// APP
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
-  const [query, setQuery] = useState("");
+  // ── Chat state ──────────────────────────────────────────────────────────────
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Navigation & detail/payment state (unchanged) ───────────────────────────
+  const [screen, setScreen] = useState<Screen>("chat");
   const [selectedProvider, setSelectedProvider] = useState<ProveedorRecomendado | null>(null);
   const [providerServices, setProviderServices] = useState<ServicioProducto[]>([]);
   const [extraQuantities, setExtraQuantities] = useState<Record<number, number>>({});
@@ -103,12 +119,15 @@ export default function App() {
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // TanStack Query mutation — handles loading, error, and data
+  // ── TanStack Query mutation ─────────────────────────────────────────────────
   const searchMutation = useRecomendarEvento();
-  const recommendation = searchMutation.data ?? null;
-  const principales = recommendation?.resultados_principales ?? [];
-  const otras = recommendation?.otras_opciones ?? [];
 
+  // ── Auto-scroll to bottom when messages change or mutation is pending ───────
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, searchMutation.isPending]);
+
+  // ── Derived values for detail screen (unchanged) ────────────────────────────
   const packageDurationHours = useMemo(
     () => (selectedProvider ? inferPackageDuration(selectedProvider) : 2),
     [selectedProvider],
@@ -147,34 +166,62 @@ export default function App() {
   const advance = roundMoney(total * 0.2);
   const localBalance = roundMoney(total * 0.8);
 
-  function handleSearch(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    const cleanQuery = query.trim();
-    if (!cleanQuery) {
-      setError("Describe el evento que quieres encontrar.");
-      return;
-    }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHAT HANDLER — Paso 1 + Paso 2 (historial)
+  // ═══════════════════════════════════════════════════════════════════════════
 
+  const handleSend = useCallback((text: string) => {
+    const userMessage: ChatMessage = {
+      id: nextId(),
+      role: "user",
+      content: text,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setError(null);
-    setSelectedProvider(null);
-    setPreReserva(null);
-    setConfirmation(null);
 
-    searchMutation.mutate(cleanQuery, {
-      onSuccess: () => setScreen("results"),
-      onError: (err) => setError(readError(err)),
-    });
-  }
+    // Build historial from current messages + this new one
+    const historial = [...messages, userMessage].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    searchMutation.mutate(
+      { mensaje: text, historial },
+      {
+        onSuccess: (data) => {
+          const assistantMessage: ChatMessage = {
+            id: nextId(),
+            role: "assistant",
+            content: data.respuesta,
+            recommendation: data,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        },
+        onError: (err) => {
+          const errorMessage: ChatMessage = {
+            id: nextId(),
+            role: "assistant",
+            content: `Lo siento, ocurrió un error: ${readError(err)}. ¿Podrías intentarlo de nuevo?`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        },
+      },
+    );
+  }, [messages, searchMutation]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DETAIL / PAYMENT HANDLERS (unchanged business logic)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   async function openPackage(provider: ProveedorRecomendado) {
     setLoadingDetail(true);
     setError(null);
     setSelectedProvider(provider);
     setExtraQuantities({});
-    setEventDraft((current) => ({
-      ...current,
-      invitados: current.invitados || String(parseGuests(query) ?? ""),
-    }));
 
     try {
       const services = await listarServiciosProveedor(provider.proveedor_id);
@@ -262,10 +309,14 @@ export default function App() {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
+
   return (
     <div className={`app-shell screen-${screen}`}>
       <header className="app-header">
-        <button className="brand-button" type="button" onClick={() => setScreen("home")}>
+        <button className="brand-button" type="button" onClick={() => setScreen("chat")}>
           <span className="brand-icon">
             <PartyPopper size={20} />
           </span>
@@ -273,82 +324,52 @@ export default function App() {
         </button>
       </header>
 
-      {screen === "home" && (
-        <main className="home-screen">
-          <section className="search-hero">
-            <div className="hero-mark">
-              <Sparkles size={22} />
+      {/* ── CHAT SCREEN ──────────────────────────────────────────────────── */}
+      {screen === "chat" && (
+        <main className="chat-screen">
+          {messages.length === 0 ? (
+            /* Welcome state */
+            <div className="chat-welcome">
+              <div className="chat-welcome-icon">
+                <Sparkles size={28} />
+              </div>
+              <h2>¡Hola! Soy el asistente de Festio</h2>
+              <p>
+                Cuéntame qué tipo de evento necesitas y te buscaré las mejores opciones
+                con disponibilidad en tiempo real.
+              </p>
             </div>
-            <h1>Encuentra tu evento con Festio</h1>
-            <p>Describe lo que necesitas y te conectamos con proveedores disponibles.</p>
-
-            <form className="search-box" onSubmit={handleSearch}>
-              <Search size={22} />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Ej: Show infantil de Spiderman para 30 niños este sábado..."
-                autoFocus
-              />
-              <button type="submit" disabled={searchMutation.isPending}>
-                {searchMutation.isPending ? <Loader2 className="spin" size={22} /> : <Search size={22} />}
-              </button>
-            </form>
-
-            <div className="quick-suggestions">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => {
-                    setQuery(suggestion);
-                    setError(null);
-                  }}
-                >
-                  {chipIcon(suggestion)}
-                  <span>{suggestion.split(" para ")[0]}</span>
-                </button>
+          ) : (
+            /* Message area */
+            <div className="chat-messages">
+              {messages.map((msg) => (
+                <ChatBubble
+                  key={msg.id}
+                  message={msg}
+                  onSelectProvider={openPackage}
+                  loadingDetail={loadingDetail}
+                />
               ))}
+              {searchMutation.isPending && <TypingIndicator />}
+              <div ref={messagesEndRef} />
             </div>
+          )}
 
-            {(error || searchMutation.error) && (
-              <p className="inline-error">{error ?? readError(searchMutation.error)}</p>
-            )}
-          </section>
-        </main>
-      )}
-
-      {screen === "results" && (
-        <main className="page-wrap">
-          <section className="results-head">
-            <button className="ghost-button" type="button" onClick={() => setScreen("home")}>
-              <ArrowLeft size={18} />
-              Nueva búsqueda
-            </button>
-            <div>
-              <span>Resultados</span>
-              <h2>{query}</h2>
-            </div>
-          </section>
-
-          {error && <p className="inline-error">{error}</p>}
-
-          <ProviderGrid
-            principales={principales}
-            otras={otras}
+          <ChatInput
+            onSend={handleSend}
             isPending={searchMutation.isPending}
-            onSelect={(provider) => openPackage(provider)}
-            loadingDetail={loadingDetail}
-            onNewSearch={() => setScreen("home")}
+            suggestions={suggestions}
+            showSuggestions={messages.length === 0}
           />
         </main>
       )}
 
+      {/* ── DETAIL SCREEN (unchanged) ────────────────────────────────────── */}
       {screen === "detail" && selectedProvider && (
         <main className="page-wrap detail-wrap">
-          <button className="ghost-button" type="button" onClick={() => setScreen("results")}>
+          <button className="ghost-button" type="button" onClick={() => setScreen("chat")}>
             <ArrowLeft size={18} />
-            Volver a paquetes
+            Volver al chat
           </button>
 
           {error && <p className="inline-error">{error}</p>}
@@ -463,6 +484,7 @@ export default function App() {
         </main>
       )}
 
+      {/* ── SUCCESS SCREEN (unchanged) ───────────────────────────────────── */}
       {screen === "success" && confirmation && (
         <main className="success-screen">
           <section className="success-card">
@@ -487,13 +509,14 @@ export default function App() {
                 <strong>{money.format(confirmation.monto_pendiente)}</strong>
               </div>
             </div>
-            <button className="primary-action" type="button" onClick={() => setScreen("home")}>
-              Nueva búsqueda
+            <button className="primary-action" type="button" onClick={() => setScreen("chat")}>
+              Volver al chat
             </button>
           </section>
         </main>
       )}
 
+      {/* ── PAYMENT MODAL (unchanged) ────────────────────────────────────── */}
       {paymentOpen && preReserva && (
         <div className="modal-backdrop" role="presentation">
           <section className="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title">
@@ -613,8 +636,9 @@ export default function App() {
   );
 }
 
-// PackageCard is now replaced by ProviderCard (shadcn/ui) via ProviderGrid
-
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER COMPONENTS (unchanged)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function PackageLine({ item }: { item: ItemRecomendado }) {
   return (
@@ -648,12 +672,9 @@ function PaymentMethod({ value, onChange }: { value: string; onChange: (value: s
   );
 }
 
-function chipIcon(text: string) {
-  if (text.toLowerCase().includes("hora loca")) return "🎉";
-  if (text.toLowerCase().includes("dj")) return "🎵";
-  if (text.toLowerCase().includes("silla")) return "🪑";
-  return "🎪";
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS (unchanged)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function inferPackageDuration(provider: ProveedorRecomendado) {
   const text = `${provider.paquete.nombre} ${provider.paquete.descripcion ?? ""}`.toLowerCase();
@@ -700,11 +721,6 @@ function formatDuration(hours: number) {
     return `${Math.round(hours * 60)} min`;
   }
   return `${hours} h`;
-}
-
-function parseGuests(text: string) {
-  const match = text.match(/(\d+)\s*(niñ|persona|invitad|asistente|adult)/i);
-  return match ? Number(match[1]) : undefined;
 }
 
 function cleanNumber(value: string) {

@@ -1,9 +1,9 @@
 import type {
+  ChatPayload,
   CheckoutClienteCreate,
   CheckoutReservaResponse,
   PreReservaPayload,
   PreReservaResponse,
-  RecomendacionRequest,
   RecomendacionResponse,
   ServicioProducto,
 } from "./types";
@@ -45,7 +45,7 @@ function readApiError(payload: unknown, status: number): string {
   return `La API respondió con estado ${status}.`;
 }
 
-export function recomendarEvento(datos: RecomendacionRequest) {
+export function recomendarEvento(datos: ChatPayload) {
   return requestJson<RecomendacionResponse>("/api/chat/recomendar", {
     method: "POST",
     body: JSON.stringify(datos),

@@ -1,3 +1,22 @@
+// ─── Chat Conversacional ─────────────────────────────────────────────────────
+
+/** Mensaje individual en la conversación del chat */
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  recommendation?: RecomendacionResponse;
+  timestamp: Date;
+};
+
+/** Payload que va al backend — empata con ChatRequest de Pydantic */
+export type ChatPayload = {
+  mensaje: string;
+  historial: { role: string; content: string }[];
+};
+
+// ─── Recomendación ───────────────────────────────────────────────────────────
+
 export type RecomendacionRequest = {
   mensaje: string;
   nombre_evento?: string;
@@ -9,6 +28,7 @@ export type RecomendacionRequest = {
   distrito?: string;
   presupuesto_maximo?: number;
 };
+
 
 export type ItemRecomendado = {
   servicio_producto_id: number;

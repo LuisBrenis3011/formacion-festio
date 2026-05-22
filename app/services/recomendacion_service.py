@@ -65,12 +65,15 @@ PALABRAS_EXPERIENCIA: Set[str] = {
 def recomendar_evento(datos: RecomendacionRequest, db: Session) -> RecomendacionResponse:
     texto = _norm(datos.mensaje)
 
-    # ── Fase 1: Detección jerárquica (Regla 2) ────────────────────────────
-    tipo_evento = _detectar_tipo_evento(texto)
-    tematica = _detectar_tematica(texto)
-    servicios_pedidos = _detectar_servicios_extra(texto)
-    cantidades = _detectar_cantidades(texto, datos.aforo_estimado)
-    busca_barato = _detecta_bajo_presupuesto(texto)
+        # ── Fase 1: Detección jerárquica — Gemini primero, texto como fallback ─
+    tipo_evento = datos.tipo_evento or _detectar_tipo_evento(texto)
+    tematica = datos.tematica_detectada or _detectar_tematica(texto)
+    servicios_pedidos = (
+        set(datos.servicios_extra_detectados) if datos.servicios_extra_detectados
+        else _detectar_servicios_extra(texto)
+    )
+    cantidades = datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
+    busca_barato = _detecta_bajo_presupuesto(texto)  # ← este siempre del texto, tiene sentido
 
     # Inferencia jerárquica
     if tipo_evento is None and tematica:
@@ -475,21 +478,30 @@ def _calc_sub(srv: ServicioProducto, cant: int, horas: Optional[float]) -> float
 def _r(v: float) -> float:
     return float(Decimal(str(v)).quantize(Decimal("0.01")))
 
+
 def _crear_respuesta(
     principales: List[ProveedorRecomendado], secundarios: List[ProveedorRecomendado],
     requiere_fecha: bool, faltantes: List[str], tematica: Optional[str],
 ) -> str:
     if not principales and not secundarios:
         return "No encontré paquetes para esa búsqueda. Prueba con otra temática, fecha u horario."
-    if principales:
+
+    if not principales and secundarios:
+        # Antes decía genéricamente "no encontré coincidencias exactas"
+        # Ahora es específico con la temática buscada
+        if tematica:
+            txt = f"No encontré paquetes de '{tematica.title()}' disponibles."
+        else:
+            txt = "No encontré coincidencias exactas."
+        txt += f" Te muestro {len(secundarios)} alternativa{'s' if len(secundarios) > 1 else ''} similar{'es' if len(secundarios) > 1 else ''}."
+    else:
         n = len(principales)
         txt = f"Encontré {'una opción ideal' if n == 1 else f'{n} opciones'} que coincide{'n' if n > 1 else ''} con tu búsqueda."
         if tematica:
             txt = txt.replace("tu búsqueda", f"'{tematica.title()}'")
         if secundarios:
             txt += f" También te sugiero {len(secundarios)} alternativas."
-    else:
-        txt = "No encontré coincidencias exactas, pero aquí tienes las mejores alternativas disponibles."
+
     if any(p.puede_prebloquear for p in principales + secundarios):
         txt += " Si alguna te gusta, ya puedes enviarla a prebloqueo."
     elif faltantes:
@@ -497,6 +509,7 @@ def _crear_respuesta(
     elif requiere_fecha:
         txt += " Necesito fecha y hora para confirmar disponibilidad."
     return txt
+
 
 def _accion(provs: List[ProveedorRecomendado], faltantes: List[str]) -> str:
     if not provs:
