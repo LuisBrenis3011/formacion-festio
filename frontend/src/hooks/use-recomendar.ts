@@ -26,6 +26,7 @@ export function useRecomendarEvento() {
       const response = await recomendarEvento({
         mensaje: cleanQuery,
         historial: payload.historial,
+        estado_conversacion: payload.estado_conversacion ?? null,
       });
 
       // Runtime-validate the response shape with Zod

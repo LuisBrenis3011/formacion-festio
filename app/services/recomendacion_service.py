@@ -52,6 +52,12 @@ SERVICIO_AISLADO: Dict[str, str] = {
     "dj": "adultos", "animadora": "infantil", "animador": "infantil",
     "bailarina": "hora_loca", "bailarin": "hora_loca",
 }
+SERVICIOS_DETECTABLES: Set[str] = set().union(
+    SERVICIOS_EXTRA,
+    SERVICIO_AISLADO.keys(),
+    *CROSS_SELL.values(),
+    {"sillas", "toldos", "mesas", "carpa", "carpas", "muneco", "muñeco", "personajes"},
+)
 STOPWORDS: Set[str] = {
     "show", "fiesta", "evento", "reunion", "celebracion", "paquete",
     "servicio", "quiero", "necesito", "busco", "algo", "para", "con",
@@ -69,10 +75,12 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
     tipo_evento = datos.tipo_evento or _detectar_tipo_evento(texto)
     tematica = datos.tematica_detectada or _detectar_tematica(texto)
     servicios_pedidos = (
-        set(datos.servicios_extra_detectados) if datos.servicios_extra_detectados
+        _normalizar_servicios_pedidos(datos.servicios_extra_detectados) if datos.servicios_extra_detectados
         else _detectar_servicios_extra(texto)
     )
-    cantidades = datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
+    cantidades = _normalizar_cantidades(
+        datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
+    )
     busca_barato = _detecta_bajo_presupuesto(texto)  # ← este siempre del texto, tiene sentido
 
     # Inferencia jerárquica
@@ -237,7 +245,28 @@ def _detectar_tematica(texto: str) -> Optional[str]:
     return None
 
 def _detectar_servicios_extra(texto: str) -> Set[str]:
-    return {s for s in SERVICIOS_EXTRA if _norm(s) in texto}
+    return _normalizar_servicios_pedidos([s for s in SERVICIOS_DETECTABLES if _norm(s) in texto])
+
+
+def _normalizar_servicios_pedidos(servicios: List[str]) -> Set[str]:
+    normalizados: Set[str] = set()
+    for servicio in servicios:
+        nombre = _norm(servicio).strip()
+        if not nombre:
+            continue
+        normalizados.add(nombre)
+        clave = _clasificar_servicio(nombre)
+        if clave != "servicio":
+            normalizados.add(clave)
+    return normalizados
+
+
+def _normalizar_cantidades(cantidades: Dict[str, int]) -> Dict[str, int]:
+    normalizadas: Dict[str, int] = {}
+    for nombre, cantidad in cantidades.items():
+        clave = _clasificar_servicio(_norm(nombre))
+        normalizadas[clave if clave != "servicio" else _norm(nombre)] = cantidad
+    return normalizadas
 
 def _detectar_cantidades(texto: str, aforo: Optional[int]) -> Dict[str, int]:
     c: Dict[str, int] = {}

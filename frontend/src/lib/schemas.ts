@@ -69,6 +69,21 @@ export const proveedorRecomendadoSchema = z.object({
 
 // ---------- Recomendación Response ----------
 
+export const recomendacionRequestSchema = z.object({
+  mensaje: z.string(),
+  nombre_evento: z.string().nullable().optional(),
+  tipo_evento: z.string().nullable().optional(),
+  tematica_detectada: z.string().nullable().optional(),
+  servicios_extra_detectados: z.array(z.string()).optional(),
+  cantidades_servicios: z.record(z.string(), z.number()).optional(),
+  fecha_evento_inicio: z.string().nullable().optional(),
+  fecha_evento_fin: z.string().nullable().optional(),
+  direccion: z.string().nullable().optional(),
+  aforo_estimado: z.number().nullable().optional(),
+  distrito: z.string().nullable().optional(),
+  presupuesto_maximo: z.number().nullable().optional(),
+});
+
 export const recomendacionResponseSchema = z.object({
   respuesta: z.string(),
   accion: z.string(),
@@ -76,6 +91,7 @@ export const recomendacionResponseSchema = z.object({
   datos_faltantes_prebloqueo: z.array(z.string()),
   endpoint_prebloqueo: z.string(),
   intencion_detectada: z.array(z.string()),
+  estado_conversacion: recomendacionRequestSchema.nullable().optional(),
   resultados_principales: z.array(proveedorRecomendadoSchema),
   otras_opciones: z.array(proveedorRecomendadoSchema),
 });

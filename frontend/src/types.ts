@@ -13,20 +13,24 @@ export type ChatMessage = {
 export type ChatPayload = {
   mensaje: string;
   historial: { role: string; content: string }[];
+  estado_conversacion?: RecomendacionRequest | null;
 };
 
 // ─── Recomendación ───────────────────────────────────────────────────────────
 
 export type RecomendacionRequest = {
   mensaje: string;
-  nombre_evento?: string;
-  tipo_evento?: string;
-  fecha_evento_inicio?: string;
-  fecha_evento_fin?: string;
-  direccion?: string;
-  aforo_estimado?: number;
-  distrito?: string;
-  presupuesto_maximo?: number;
+  nombre_evento?: string | null;
+  tipo_evento?: string | null;
+  tematica_detectada?: string | null;
+  servicios_extra_detectados?: string[];
+  cantidades_servicios?: Record<string, number>;
+  fecha_evento_inicio?: string | null;
+  fecha_evento_fin?: string | null;
+  direccion?: string | null;
+  aforo_estimado?: number | null;
+  distrito?: string | null;
+  presupuesto_maximo?: number | null;
 };
 
 
@@ -92,6 +96,7 @@ export type RecomendacionResponse = {
   datos_faltantes_prebloqueo: string[];
   endpoint_prebloqueo: string;
   intencion_detectada: string[];
+  estado_conversacion?: RecomendacionRequest | null;
   resultados_principales: ProveedorRecomendado[];
   otras_opciones: ProveedorRecomendado[];
 };
@@ -152,4 +157,32 @@ export type ServicioProducto = {
   stock_maximo_simultaneo: number;
   duracion_base_horas?: number | null;
   estado: string;
+};
+
+// ─── UI State Types ──────────────────────────────────────────────────────────
+
+export type Screen = "chat" | "detail" | "success";
+
+export type AuthTab = "login" | "register";
+
+export type EventDraft = {
+  fecha: string;
+  horaInicio: string;
+  direccion: string;
+  invitados: string;
+};
+
+export type RegisterDraft = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+  password: string;
+  metodoPago: string;
+};
+
+export type LoginDraft = {
+  email: string;
+  password: string;
+  metodoPago: string;
 };

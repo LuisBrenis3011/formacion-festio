@@ -20,6 +20,7 @@ async def chat_recomendar(
     respuesta = await procesar_mensaje(
         mensaje=datos.mensaje,
         historial=datos.historial,
+        estado_conversacion=datos.estado_conversacion,
         db=db,
     )
     return respuesta

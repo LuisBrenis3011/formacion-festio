@@ -3,12 +3,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { money } from "@/lib/format";
 import type { ProveedorRecomendado } from "../types";
 
-const money = new Intl.NumberFormat("es-PE", {
-  style: "currency",
-  currency: "PEN",
-});
 
 type ProviderCardProps = {
   provider: ProveedorRecomendado;

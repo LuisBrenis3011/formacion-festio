@@ -6,11 +6,6 @@ from pydantic import BaseModel, Field
 from app.schemas.reserva import PreReservaCreate
 
 
-class ChatRequest(BaseModel):
-    mensaje: str
-    historial: List[dict] = []
-
-
 class CantidadServicio(BaseModel):
     """Par clave-valor para cantidades de servicios.
     El SDK google-genai no soporta dict[str, int] en Structured Output
@@ -33,6 +28,12 @@ class RecomendacionRequest(BaseModel):
     aforo_estimado: Optional[int] = None
     distrito: Optional[str] = None
     presupuesto_maximo: Optional[float] = None
+
+
+class ChatRequest(BaseModel):
+    mensaje: str
+    historial: List[dict] = Field(default_factory=list)
+    estado_conversacion: Optional[RecomendacionRequest] = None
 
 
 class GeminiRecomendacionSchema(BaseModel):
@@ -117,5 +118,6 @@ class RecomendacionResponse(BaseModel):
     datos_faltantes_prebloqueo: List[str] = Field(default_factory=list)
     endpoint_prebloqueo: str = "/api/reservas/prebloquear"
     intencion_detectada: List[str]
+    estado_conversacion: Optional[RecomendacionRequest] = None
     resultados_principales: List[ProveedorRecomendado] = Field(default_factory=list)
     otras_opciones: List[ProveedorRecomendado] = Field(default_factory=list)
