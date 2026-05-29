@@ -89,7 +89,6 @@ class DetallePaqueteOut(BaseModel):
 class PaqueteCreate(BaseModel):
     proveedor_id: int
     categoria_id: int
-    tematica_id: Optional[int] = None
     nombre: str
     descripcion: Optional[str] = None
     precio_base: float
@@ -100,7 +99,6 @@ class PaqueteUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     precio_base: Optional[float] = None
-    tematica_id: Optional[int] = None
     estado: Optional[EstadoBasico] = None
 
 
@@ -108,7 +106,6 @@ class PaqueteOut(BaseModel):
     id: int
     proveedor_id: int
     categoria_id: int
-    tematica_id: Optional[int]
     nombre: str
     descripcion: Optional[str]
     precio_base: float

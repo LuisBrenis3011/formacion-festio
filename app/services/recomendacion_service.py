@@ -52,12 +52,6 @@ SERVICIO_AISLADO: Dict[str, str] = {
     "dj": "adultos", "animadora": "infantil", "animador": "infantil",
     "bailarina": "hora_loca", "bailarin": "hora_loca",
 }
-SERVICIOS_DETECTABLES: Set[str] = set().union(
-    SERVICIOS_EXTRA,
-    SERVICIO_AISLADO.keys(),
-    *CROSS_SELL.values(),
-    {"sillas", "toldos", "mesas", "carpa", "carpas", "muneco", "muñeco", "personajes"},
-)
 STOPWORDS: Set[str] = {
     "show", "fiesta", "evento", "reunion", "celebracion", "paquete",
     "servicio", "quiero", "necesito", "busco", "algo", "para", "con",
@@ -75,12 +69,10 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
     tipo_evento = datos.tipo_evento or _detectar_tipo_evento(texto)
     tematica = datos.tematica_detectada or _detectar_tematica(texto)
     servicios_pedidos = (
-        _normalizar_servicios_pedidos(datos.servicios_extra_detectados) if datos.servicios_extra_detectados
+        set(datos.servicios_extra_detectados) if datos.servicios_extra_detectados
         else _detectar_servicios_extra(texto)
     )
-    cantidades = _normalizar_cantidades(
-        datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
-    )
+    cantidades = datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
     busca_barato = _detecta_bajo_presupuesto(texto)  # ← este siempre del texto, tiene sentido
 
     # Inferencia jerárquica
@@ -100,7 +92,6 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
         .options(
             joinedload(Proveedor.paquetes).joinedload(Paquete.detalles)
                 .joinedload(DetallePaquete.servicio_producto),
-            joinedload(Proveedor.paquetes).joinedload(Paquete.tematica),
             joinedload(Proveedor.paquetes).joinedload(Paquete.categoria),
             joinedload(Proveedor.servicios_productos),
         )
@@ -245,28 +236,7 @@ def _detectar_tematica(texto: str) -> Optional[str]:
     return None
 
 def _detectar_servicios_extra(texto: str) -> Set[str]:
-    return _normalizar_servicios_pedidos([s for s in SERVICIOS_DETECTABLES if _norm(s) in texto])
-
-
-def _normalizar_servicios_pedidos(servicios: List[str]) -> Set[str]:
-    normalizados: Set[str] = set()
-    for servicio in servicios:
-        nombre = _norm(servicio).strip()
-        if not nombre:
-            continue
-        normalizados.add(nombre)
-        clave = _clasificar_servicio(nombre)
-        if clave != "servicio":
-            normalizados.add(clave)
-    return normalizados
-
-
-def _normalizar_cantidades(cantidades: Dict[str, int]) -> Dict[str, int]:
-    normalizadas: Dict[str, int] = {}
-    for nombre, cantidad in cantidades.items():
-        clave = _clasificar_servicio(_norm(nombre))
-        normalizadas[clave if clave != "servicio" else _norm(nombre)] = cantidad
-    return normalizadas
+    return {s for s in SERVICIOS_EXTRA if _norm(s) in texto}
 
 def _detectar_cantidades(texto: str, aforo: Optional[int]) -> Dict[str, int]:
     c: Dict[str, int] = {}
@@ -339,7 +309,6 @@ def _elegir_paquete(
     for paq in paquetes:
         score = 0
         nom = _norm(f"{paq.nombre or ''} {paq.descripcion or ''}")
-        tem_paq = _norm(paq.tematica.nombre if paq.tematica else "")
 
         # Nivel 1: CONTEXTO (+20 / -20) — Regla 6: usar categoría primero
         if tipo_evento:
@@ -352,9 +321,9 @@ def _elegir_paquete(
         # Nivel 2: TEMÁTICA (+20 / -20)
         if tematica:
             t_n = _norm(tematica)
-            if t_n in tem_paq or t_n in nom:
+            if t_n in nom:
                 score += 20
-            elif _tiene_otra_tematica(nom, tem_paq, t_n):
+            elif _tiene_otra_tematica(nom, "", t_n):
                 score -= 20
 
         # Nivel 3: COINCIDENCIA GENERAL (+5 / +1)
@@ -363,7 +332,7 @@ def _elegir_paquete(
                 if palabra in nom:
                     score += 1
                 continue
-            if palabra in nom or palabra in tem_paq:
+            if palabra in nom:
                 score += 5
 
         # Nivel 4: SERVICIOS (+2)
@@ -389,10 +358,7 @@ def _inferir_tipo_paquete(paq: Paquete) -> Optional[str]:
         for tipo, palabras in TIPOS_EVENTO.items():
             if any(_norm(p) in cat for p in palabras):
                 return tipo
-    # 2. Por temática (si tiene temática → infantil)
-    if paq.tematica:
-        return "infantil"
-    # 3. Fallback: por nombre/descripción
+    # 2. Fallback: por nombre/descripción
     combined = _norm(f"{paq.nombre or ''} {paq.descripcion or ''}")
     for tipo, palabras in TIPOS_EVENTO.items():
         if any(_norm(p) in combined for p in palabras):

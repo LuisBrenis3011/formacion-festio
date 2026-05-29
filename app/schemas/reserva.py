@@ -8,6 +8,7 @@ from app.models.enums import EstadoReserva
 
 class EventoCreate(BaseModel):
     cliente_id: int
+    categoria_id: Optional[int] = None
     nombre_evento: str
     tipo_evento: Optional[str] = None
     fecha_evento_inicio: datetime
@@ -19,6 +20,7 @@ class EventoCreate(BaseModel):
 class EventoOut(BaseModel):
     id: int
     cliente_id: int
+    categoria_id: Optional[int]
     nombre_evento: str
     tipo_evento: Optional[str]
     fecha_evento_inicio: datetime
@@ -72,6 +74,7 @@ class DetalleReservaOut(BaseModel):
 class ReservaCreate(BaseModel):
     evento_id: int
     proveedor_id: int
+    tematica_id: Optional[int] = None
     detalles: List[DetalleReservaCreate]
 
 
@@ -142,6 +145,7 @@ class ReservaOut(BaseModel):
     id: int
     evento_id: int
     proveedor_id: int
+    tematica_id: Optional[int]
     estado: EstadoReserva
     monto_total: float
     costo_movilidad: float

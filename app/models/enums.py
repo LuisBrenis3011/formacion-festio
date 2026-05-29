@@ -42,10 +42,13 @@ class TipoItemCatalogo(str, enum.Enum):
 
 class RolPersonal(str, enum.Enum):
     """CREATE TYPE tipo_rol_personal"""
-    DJ       = "DJ"
-    ANIMADOR = "ANIMADOR"
-    BAILARIN = "BAILARIN"
-    PAYASO   = "PAYASO"
+    DJ                  = "DJ"
+    ANIMADOR            = "ANIMADOR"
+    BAILARIN            = "BAILARIN"
+    PAYASO              = "PAYASO"
+    MUÑECO              = "MUÑECO"
+    MESERO              = "MESERO"
+    MAESTRO_DE_CEREMONIA = "MAESTRO_DE_CEREMONIA"
 
 
 # ── Módulo 5: Reservas ──────────────────────────────────────────────────────

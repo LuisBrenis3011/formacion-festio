@@ -15,11 +15,10 @@ router = APIRouter()
 def listar_paquetes(
     proveedor_id: int = None,
     categoria_id: int = None,
-    tematica_id:  int = None,
     db: Session = Depends(get_db)
 ):
     """Lista paquetes activos con filtros opcionales."""
-    return paquete_service.listar_paquetes(proveedor_id, categoria_id, tematica_id, db)
+    return paquete_service.listar_paquetes(proveedor_id, categoria_id, db)
 
 
 @router.get("/{paquete_id}", response_model=PaqueteOut)
