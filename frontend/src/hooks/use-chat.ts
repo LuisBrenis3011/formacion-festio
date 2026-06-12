@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRecomendarEvento } from "./use-recomendar";
 import { readError } from "../lib/format";
 import type { ChatMessage, RecomendacionRequest } from "../types";
@@ -17,6 +17,13 @@ export function useChat() {
   const [conversationState, setConversationState] = useState<RecomendacionRequest | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchMutation = useRecomendarEvento();
+  const latestRecommendation = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const recommendation = messages[index].recommendation;
+      if (recommendation) return recommendation;
+    }
+    return null;
+  }, [messages]);
 
   // Auto-scroll to bottom when messages change or mutation is pending
   useEffect(() => {
@@ -73,10 +80,17 @@ export function useChat() {
     [conversationState, messages, searchMutation],
   );
 
+  const resetChat = useCallback(() => {
+    setMessages([]);
+    setConversationState(null);
+  }, []);
+
   return {
     messages,
     isPending: searchMutation.isPending,
     handleSend,
     messagesEndRef,
+    latestRecommendation,
+    resetChat,
   };
 }

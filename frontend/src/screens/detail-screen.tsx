@@ -23,6 +23,7 @@ type DetailScreenProps = {
   balance: number;
   packageDurationHours: number;
   selectedExtras: ServicioProducto[];
+  eventType?: string | null;
   error: string | null;
   loadingPayment: boolean;
   onBack: () => void;
@@ -42,6 +43,7 @@ export function DetailScreen({
   balance,
   packageDurationHours,
   selectedExtras,
+  eventType,
   error,
   loadingPayment,
   onBack,
@@ -55,6 +57,15 @@ export function DetailScreen({
       packageDurationHours,
     );
   }, [eventDraft.fecha, eventDraft.horaInicio, packageDurationHours]);
+  const extrasByType = useMemo(
+    () =>
+      extras.reduce<Record<string, ServicioProducto[]>>((groups, service) => {
+        const label = service.tipo || "Adicionales";
+        groups[label] = [...(groups[label] ?? []), service];
+        return groups;
+      }, {}),
+    [extras],
+  );
 
   function handleContinue() {
     onContinue({
@@ -93,33 +104,55 @@ export function DetailScreen({
           </div>
 
           <div className="extras-block">
-            <h3>Adicionales</h3>
+            <h3>
+              Adicionales
+              {selectedExtras.length > 0 && (
+                <span className="extras-count-badge">
+                  {selectedExtras.length} seleccionados
+                </span>
+              )}
+            </h3>
             <div className="extras-list">
-              {extras.map((service) => {
-                const quantity = extraQuantities[service.id] ?? 0;
-                const stock = Math.max(service.stock_maximo_simultaneo ?? 1, 1);
-                return (
-                  <div className="extra-row" key={service.id}>
-                    <div>
-                      <strong>{service.nombre}</strong>
-                      <span>
-                        {money.format(service.precio_unitario)}
-                        {service.duracion_base_horas ? ` · ${formatDuration(service.duracion_base_horas)}` : ""}
-                        {` · stock ${stock}`}
-                      </span>
-                    </div>
-                    <div className="stepper">
-                      <button type="button" onClick={() => updateExtra(service, -1)} disabled={quantity === 0}>
-                        <Minus size={16} />
-                      </button>
-                      <span>{quantity}</span>
-                      <button type="button" onClick={() => updateExtra(service, 1)} disabled={quantity >= stock}>
-                        <Plus size={16} />
-                      </button>
-                    </div>
+              {Object.entries(extrasByType).map(([type, services]) => (
+                <section className="extras-group" key={type}>
+                  <div className="extras-group-header">{type}</div>
+                  <div className="extras-group-items">
+                    {services.map((service) => {
+                      const quantity = extraQuantities[service.id] ?? 0;
+                      const stock = Math.max(service.stock_maximo_simultaneo ?? 1, 1);
+                      return (
+                        <div className="extra-row" key={service.id}>
+                          <div>
+                            <strong>{service.nombre}</strong>
+                            <span>
+                              {money.format(service.precio_unitario)}
+                              {service.duracion_base_horas ? ` · ${formatDuration(service.duracion_base_horas)}` : ""}
+                              {` · stock ${stock}`}
+                            </span>
+                          </div>
+                          <div className="stepper">
+                            <button type="button" onClick={() => updateExtra(service, -1)} disabled={quantity === 0}>
+                              <Minus size={16} />
+                            </button>
+                            <span>{quantity}</span>
+                            <button type="button" onClick={() => updateExtra(service, 1)} disabled={quantity >= stock}>
+                              <Plus size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </section>
+              ))}
+              {extras.length === 0 && (
+                <div className="extra-row">
+                  <div>
+                    <strong>No hay adicionales disponibles</strong>
+                    <span>Este paquete ya incluye los servicios activos del proveedor.</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </article>
@@ -128,6 +161,12 @@ export function DetailScreen({
           <div className="summary-card">
             <span className="summary-eyebrow">Datos del evento</span>
             <div className="field-grid">
+              <label>
+                <span>Tipo de evento</span>
+                <div className="tipo-evento-badge">
+                  {eventType || provider.payload_prebloqueo?.tipo_evento || "Evento"}
+                </div>
+              </label>
               <label>
                 <span>Fecha</span>
                 <input

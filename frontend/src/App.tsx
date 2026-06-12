@@ -30,6 +30,8 @@ export default function App() {
           messagesEndRef={chat.messagesEndRef}
           onSelectProvider={booking.openPackage}
           loadingDetail={booking.loadingDetail}
+          latestRecommendation={chat.latestRecommendation}
+          onGoHome={chat.resetChat}
         />
       ) : screen === "detail" && booking.selectedProvider ? (
         <DetailScreen
@@ -45,6 +47,7 @@ export default function App() {
           balance={extras.balance}
           packageDurationHours={extras.packageDurationHours}
           selectedExtras={extras.selectedExtras}
+          eventType={chat.latestRecommendation?.estado_conversacion?.tipo_evento}
           error={booking.error || payment.error}
           loadingPayment={payment.loadingPayment}
           onBack={() => setScreen("chat")}
@@ -53,6 +56,9 @@ export default function App() {
       ) : screen === "success" && payment.confirmation ? (
         <SuccessScreen
           confirmation={payment.confirmation}
+          preReserva={payment.preReserva}
+          provider={booking.selectedProvider}
+          eventDraft={booking.eventDraft}
           onBack={() => setScreen("chat")}
         />
       ) : null}

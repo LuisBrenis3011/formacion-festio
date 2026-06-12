@@ -38,8 +38,8 @@ export function PaymentModal({
           <X size={20} />
         </button>
         <div className="modal-head">
-          <span>Pago simulado</span>
-          <h2 id="payment-title">{money.format(preReserva.monto_adelanto)} de adelanto</h2>
+          <span>Confirma tu reserva</span>
+          <h2 id="payment-title">Adelanto a pagar: {money.format(preReserva.monto_adelanto)}</h2>
           <p>El saldo de {money.format(preReserva.monto_pendiente)} se paga en el local.</p>
         </div>
 
