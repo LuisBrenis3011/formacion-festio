@@ -1,0 +1,46 @@
+LUIS DAVID MORALES BRENIS
+Lima, Perú • +51 906761926 • angelvir96@gmail.com • linkedin.com/in/luis-morales • github.com/LuisBrenis3011
+
+
+Estudiante de 7.º ciclo de Ingeniería de Software en la UNMSM, enfocado en el desarrollo Backend y arquitectura de software. Mi base técnica principal es Java 21 y el ecosistema Spring (Boot, Cloud, Batch), complementada con experiencia práctica diseñando APIs con Python y FastAPI, modelando datos en PostgreSQL y comprendiendo el lado del cliente con React. Busco aportar código limpio, APIs bien diseñadas y capacidad de adaptación a distintos stacks como Practicante Backend.
+
+EXPERIENCIA LABORAL
+
+E&M Animaciones
+Coordinador de Staff
+Lima, Perú
+Diciembre 2022 – Marzo 2026
+Lideré equipos operativos en la ejecución de eventos de alta demanda, asegurando el cumplimiento estricto de los cronogramas bajo presión.
+Optimicé la logística y los tiempos de respuesta del equipo, logrando una resolución rápida de incidencias en tiempo real para garantizar la satisfacción del cliente.
+Gestioné la comunicación efectiva entre el equipo organizador de hasta 20 personas y los clientes, desarrollando habilidades de liderazgo y toma de decisiones ágil.
+
+EXPERIENCIA ACADÉMICA
+
+Plataforma de Gestión de Eventos — Festio | Python, FastAPI, PostgreSQL, SQLAlchemy, React
+Diseñé un modelo relacional de 20 tablas en PostgreSQL (usuarios, catálogo, reservas, pagos, disponibilidad) con constraints de integridad contable y lógica de negocio a nivel de base de datos.
+Desarrollé una API REST de 13 módulos con FastAPI, aplicando arquitectura por capas (routers → services → models) y validación estricta con Pydantic.
+Implementé un motor de recomendación híbrido que combina NLP (Google Gemini con Structured Outputs) y un sistema de scoring determinístico con reglas de inventario en tiempo real, cross-selling y fallback heurístico.
+Gestioné migraciones incrementales con Alembic y mapeé enums nativos de PostgreSQL a Python mediante SQLAlchemy ORM.
+
+Microservicios y Procesamiento por Lotes | Java 21, Spring Boot, Spring Cloud, Spring Batch, Docker
+Implementé descubrimiento dinámico de servicios con Eureka Server y distribución de carga con Spring Cloud Load Balancer dentro de una arquitectura de microservicios.
+Desarrollé un pipeline de procesamiento por lotes con Spring Batch para la lectura, transformación y persistencia de reportes de nóminas desde archivos CSV.
+Desplegué la infraestructura en contenedores Docker y apliqué patrones de resiliencia para garantizar alta disponibilidad ante fallos.
+
+API REST con QA y Código Limpio | Java 21, Spring Boot, SonarQube
+Construí una API bajo arquitectura por capas e implementé el patrón Facade para desacoplar la lógica de negocio entre servicios y controladores.
+Reduje deuda técnica ejecutando análisis estático con SonarQube, eliminando Code Smells y Bugs para cumplir con estándares de calidad.
+
+EDUCACIÓN
+
+UNIVERSIDAD NACIONAL MAYOR DE SAN MARCOS
+Ingeniería de Software — 7.º ciclo
+Lima, Perú
+Abril 2023 – Actualidad
+
+HABILIDADES TÉCNICAS
+
+Lenguajes y Frameworks: Java 21, Python, Spring Boot 3, Spring Cloud, Spring Batch, FastAPI, React, JPA/Hibernate, SQLAlchemy, JavaScript.
+Bases de Datos: PostgreSQL, MySQL, Oracle, SQL (consultas nivel intermedio, modelado relacional).
+DevOps y Herramientas: Docker, Git/GitHub, Maven, Gradle, Alembic, Postman, SonarQube.
+Metodologías: Scrum, Jira.

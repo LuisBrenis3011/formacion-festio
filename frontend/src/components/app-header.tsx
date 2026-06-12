@@ -1,17 +1,21 @@
-import { PartyPopper } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 type AppHeaderProps = {
   onLogoClick: () => void;
+  subtitle?: string;
 };
 
-export function AppHeader({ onLogoClick }: AppHeaderProps) {
+export function AppHeader({ onLogoClick, subtitle }: AppHeaderProps) {
   return (
     <header className="app-header">
       <button className="brand-button" type="button" onClick={onLogoClick}>
         <span className="brand-icon">
-          <PartyPopper size={20} />
+          <Sparkles size={18} />
         </span>
-        <span>Festio</span>
+        <div className="brand-text">
+          <span>Festio</span>
+          {subtitle && <small>{subtitle}</small>}
+        </div>
       </button>
     </header>
   );

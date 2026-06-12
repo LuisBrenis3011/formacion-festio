@@ -53,19 +53,29 @@ def fusionar_estado_conversacion(
     delta: RecomendacionRequest,
     mensaje: str,
 ) -> RecomendacionRequest:
-    """
-    Mantiene el estado estructurado del evento sin depender de que Gemini
-    recuerde todo el historial textual en cada turno.
-    """
+    # 1. Iniciamos con el estado base
     estado = estado_actual.model_copy(deep=True) if estado_actual else RecomendacionRequest(mensaje=mensaje)
-    aditivo = _es_actualizacion_aditiva(mensaje)
-    reemplazo = _es_reemplazo_explicito(mensaje)
-    tipo_previo = estado_actual.tipo_evento if estado_actual else None
-
     estado.mensaje = mensaje
 
+    tipo_previo = estado_actual.tipo_evento if estado_actual else None
+    
+    # 2. Evaluar si hubo un cambio radical de intención o un reemplazo explícito
+    cambio_radical = delta.tipo_evento and tipo_previo and delta.tipo_evento != tipo_previo
+    reemplazo = _es_reemplazo_explicito(mensaje)
+
+    # 3. LIMPIEZA DE MEMORIA (El fix principal)
+    # Matamos los fantasmas viejos ANTES de meter lo nuevo
+    if cambio_radical or reemplazo:
+        estado.tematica_detectada = None
+        if cambio_radical:
+            estado.nombre_evento = None  # Evita arrastrar "Fiesta de Promoción" a un "Show Infantil"
+        estado.servicios_extra_detectados = []
+        estado.cantidades_servicios = {}
+
+    # 4. APLICAR LOS DATOS NUEVOS EXTRAÍDOS POR GEMINI
     for campo in [
         "nombre_evento",
+        "tipo_evento",
         "tematica_detectada",
         "fecha_evento_inicio",
         "fecha_evento_fin",
@@ -78,20 +88,32 @@ def fusionar_estado_conversacion(
         if valor is not None:
             setattr(estado, campo, valor)
 
-    if delta.tipo_evento is not None:
-        if tipo_previo and aditivo and not reemplazo:
-            estado.tipo_evento = tipo_previo
-        else:
-            estado.tipo_evento = delta.tipo_evento
+    # 5. FUSIONAR LISTAS (Servicios extra y cantidades)
+    if not cambio_radical and not reemplazo:
+        estado.servicios_extra_detectados = _unir_listas(
+            estado.servicios_extra_detectados,
+            delta.servicios_extra_detectados or []
+        )
+        estado.cantidades_servicios = {
+            **estado.cantidades_servicios,
+            **(delta.cantidades_servicios or {})
+        }
+    else:
+        # Si hubo cambio radical, solo nos quedamos con lo nuevo
+        estado.servicios_extra_detectados = delta.servicios_extra_detectados or []
+        estado.cantidades_servicios = delta.cantidades_servicios or {}
 
-    estado.servicios_extra_detectados = _unir_listas(
-        estado.servicios_extra_detectados,
-        delta.servicios_extra_detectados,
-    )
-    estado.cantidades_servicios = {
-        **estado.cantidades_servicios,
-        **delta.cantidades_servicios,
-    }
+    # 6. AUTOCOMPLETAR CANTIDADES (El fix del mobiliario vs aforo)
+    aforo = estado.aforo_estimado
+    if estado.servicios_extra_detectados:
+        for srv in estado.servicios_extra_detectados:
+            srv_norm = srv.lower()
+            if srv_norm not in estado.cantidades_servicios:
+                # Si piden sillas/mesas y hay aforo, lo usamos. Si no, 1.
+                if "silla" in srv_norm or "mesa" in srv_norm:
+                    estado.cantidades_servicios[srv_norm] = aforo if aforo else 1
+                else:
+                    estado.cantidades_servicios[srv_norm] = 1
 
     return estado
 
@@ -105,7 +127,7 @@ async def procesar_mensaje(
     """
     Procesa el mensaje del cliente y retorna recomendaciones.
     """
-    delta = await parsear_mensaje_cliente(mensaje, historial, estado_conversacion)
+    delta = await parsear_mensaje_cliente(mensaje, historial, estado_conversacion, db)
     request_estructurado = fusionar_estado_conversacion(estado_conversacion, delta, mensaje)
 
     print("\n" + "="*50)

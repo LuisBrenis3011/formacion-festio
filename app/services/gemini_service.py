@@ -1,8 +1,10 @@
 import os
 from google import genai
 from google.genai import types
+from sqlalchemy.orm import Session
+
+from app.models.catalogo import Categoria, ServicioProducto, Tematica
 from app.schemas.chat import RecomendacionRequest, GeminiRecomendacionSchema
-from app.services.recomendacion_service import TIPOS_EVENTO, TEMATICAS, SERVICIOS_DETECTABLES
 
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -16,11 +18,12 @@ async def parsear_mensaje_cliente(
     mensaje: str,
     historial: list,
     estado_actual: RecomendacionRequest | None = None,
+    db: Session = None,
 ) -> RecomendacionRequest:
     """
     Parsea el mensaje actual y el historial usando Gemini para extraer los
     datos estructurados necesarios para la recomendación, forzando la 
-    normalización ortográfica contra nuestro catálogo.
+    normalización ortográfica contra nuestro catálogo dinámico desde la BD.
     """
     # Gemini extrae solo el delta del turno actual. El estado acumulado se
     # fusiona de forma deterministica en Python.
@@ -31,10 +34,17 @@ async def parsear_mensaje_cliente(
         )
     ]
 
-    # 3. Construir catálogos dinámicos
-    tipos_oficiales = ", ".join(TIPOS_EVENTO.keys())
-    tematicas_oficiales = ", ".join(TEMATICAS)
-    servicios_sugeridos = ", ".join(sorted(SERVICIOS_DETECTABLES))
+    # 3. Construir catálogos dinámicos desde la base de datos
+    categorias_db = db.query(Categoria).all() if db else []
+    tematicas_db = db.query(Tematica).all() if db else []
+    servicios_db = (
+        db.query(ServicioProducto.nombre).distinct().all() if db else []
+    )
+
+    tipos_oficiales = ", ".join([c.nombre for c in categorias_db])
+    tematicas_oficiales = ", ".join([t.nombre for t in tematicas_db])
+    servicios_sugeridos = ", ".join(sorted({s[0] for s in servicios_db}))
+
     estado_json = (
         estado_actual.model_dump_json(exclude_none=True)
         if estado_actual
@@ -57,8 +67,8 @@ async def parsear_mensaje_cliente(
     Debes corregirlos y MAPEARLOS OBLIGATORIAMENTE a nuestro catálogo oficial. Si pide algo fuera de la lista, devuelve null.
 
     - mensaje: devuelve exactamente el mensaje actual, sin repetirlo ni concatenarlo.
-    - tipo_evento: clasifica SOLO en uno de estos valores: [{tipos_oficiales}]. Usa 'infantil' si menciona niños. null si no queda claro. Si el usuario solo agrega un servicio con palabras como "también", "además", "agrega", "con" o "aparte", deja tipo_evento null salvo que pida cambiar el evento principal.
-    - tematica_detectada: corrige ortografía y mapea EXACTAMENTE a uno de estos: [{tematicas_oficiales}]. null si no hay o no existe en la lista.
+    - tipo_evento: clasifica SIEMPRE en uno de estos valores: [{tipos_oficiales}]. Clasifica según lo que el usuario PIDE en este mensaje, incluso si usa palabras como "también", "además" o "aparte". Ejemplos: "quiero alquilar sillas" → "Mobiliario y Decoración", "quiero un show infantil" → "Shows Infantiles", "necesito un DJ" → "Personal y Música". Usa 'Shows Infantiles' si menciona niños o temáticas infantiles. null SOLO si el mensaje no contiene ninguna pista de categoría (ej. solo da una dirección o fecha).
+    - tematica_detectada: corrige ortografía y mapea EXACTAMENTE a uno de estos: [{tematicas_oficiales}]. null si no hay o no existe en la lista. IMPORTANTE: si el usuario pide algo de una categoría que no tiene temáticas (ej. sillas, toldos, DJ), devuelve null.
     - servicios_extra_detectados: servicios, productos o adicionales pedidos en el mensaje actual. Normaliza a nombres cortos en minúscula. Usa estos nombres como referencia cuando apliquen: [{servicios_sugeridos}]. Si el usuario pide algo que no aparece en la lista, igual inclúyelo con un nombre breve y normalizado. Lista vacía si no hay.
     - cantidades_servicios: lista de objetos con cantidades si las menciona (ej: [{{"nombre_servicio": "bailarin", "cantidad": 3}}, {{"nombre_servicio": "dj", "cantidad": 1}}]). Lista vacía si no hay.
     - aforo_estimado: número de personas si lo menciona. null si no.

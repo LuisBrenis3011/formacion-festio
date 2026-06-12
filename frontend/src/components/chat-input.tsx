@@ -4,14 +4,14 @@ import { Loader2, Send } from "lucide-react";
 type ChatInputProps = {
   onSend: (text: string) => void;
   isPending: boolean;
-  suggestions?: string[];
-  showSuggestions?: boolean;
+  placeholder?: string;
 };
 
 /**
- * Fixed-bottom chat input bar with optional quick-suggestion chips.
+ * Fixed-bottom chat input bar — clean and focused.
+ * Suggestions are now rendered separately in the welcome screen.
  */
-export function ChatInput({ onSend, isPending, suggestions = [], showSuggestions = false }: ChatInputProps) {
+export function ChatInput({ onSend, isPending, placeholder = "Describe tu evento ideal..." }: ChatInputProps) {
   const [value, setValue] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -22,40 +22,19 @@ export function ChatInput({ onSend, isPending, suggestions = [], showSuggestions
     setValue("");
   }
 
-  function handleSuggestion(text: string) {
-    if (isPending) return;
-    onSend(text);
-    setValue("");
-  }
-
   return (
     <div className="chat-input-bar">
       <div className="chat-input-inner">
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="chat-suggestions">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className="chat-suggestion-chip"
-                onClick={() => handleSuggestion(s)}
-                disabled={isPending}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
         <form className="chat-input-form" onSubmit={handleSubmit}>
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="Describe tu evento ideal..."
+            placeholder={placeholder}
             disabled={isPending}
             autoFocus
           />
           <button type="submit" disabled={isPending || !value.trim()}>
-            {isPending ? <Loader2 className="spin" size={20} /> : <Send size={20} />}
+            {isPending ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
           </button>
         </form>
       </div>
