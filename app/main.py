@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv() # Esto carga el .env antes de que el resto del código despierte
 from fastapi import FastAPI
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import (
     auth, usuarios, clientes, proveedores,
     personal, catalogo, paquetes, disponibilidad,
-    reservas, pagos, notificaciones, resenas, chat
+    reservas, pagos, notificaciones, resenas, chat,
+    proveedor_inventario, proveedor_paquetes,
 )
 
 app = FastAPI(
@@ -56,6 +56,10 @@ app.include_router(pagos.router,            prefix="/api/pagos",            tags
 app.include_router(notificaciones.router,   prefix="/api/notificaciones",   tags=["Notificaciones"])
 app.include_router(resenas.router,          prefix="/api/resenas",          tags=["Reseñas"])
 app.include_router(chat.router,             prefix="/api/chat",             tags=["Chat IA"])
+
+# ── Routers B2B (Proveedor autenticado) ──────────────────────────────────────
+app.include_router(proveedor_inventario.router, prefix="/api/proveedor/inventario", tags=["Proveedor - Inventario"])
+app.include_router(proveedor_paquetes.router,   prefix="/api/proveedor/paquetes",   tags=["Proveedor - Paquetes"])
 
 @app.get("/")
 def root():

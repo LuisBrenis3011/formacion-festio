@@ -24,11 +24,6 @@ from app.models.usuario import Proveedor, Usuario
 
 PASSWORD_DEMO = "festio2024"
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# FUNCIONES CONSTRUCTORAS SEGURAS (CORREGIDAS PARA POSTGRESQL NOT NULL)
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def categoria(db, nombre: str, descripcion: str) -> Categoria:
     obj = db.query(Categoria).filter(Categoria.nombre == nombre).first()
     if not obj:

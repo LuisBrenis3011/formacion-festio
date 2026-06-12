@@ -1,3 +1,134 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// FESTIO — TypeScript Types (alineados con schemas del backend)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Auth & Roles ────────────────────────────────────────────────────────────
+
+export type RolUsuario = "CLIENTE" | "PROVEEDOR" | "ADMIN";
+
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  rol: RolUsuario;
+  usuario_id: number;
+  nombre: string;
+  proveedor_id?: number | null;
+};
+
+export type AuthUser = {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+  rol: RolUsuario;
+  estado: string;
+  proveedor_id?: number | null;
+  nombre_empresa?: string | null;
+};
+
+// ─── Catálogo ────────────────────────────────────────────────────────────────
+
+export type Categoria = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
+export type Tematica = {
+  id: number;
+  categoria_id: number;
+  nombre: string;
+  imagen_referencial?: string | null;
+};
+
+export type TipoItemCatalogo = "SERVICIO" | "PRODUCTO";
+
+export type ServicioProducto = {
+  id: number;
+  proveedor_id: number;
+  categoria_id: number;
+  nombre: string;
+  tipo: TipoItemCatalogo;
+  requiere_persona: boolean;
+  precio_unitario: number;
+  stock_maximo_simultaneo: number | null;
+  duracion_base_horas?: number | null;
+  estado: string;
+};
+
+export type DetallePaquete = {
+  id: number;
+  paquete_id: number;
+  servicio_producto_id: number;
+  cantidad_incluida: number;
+  servicio_nombre?: string | null;
+};
+
+export type Paquete = {
+  id: number;
+  proveedor_id: number;
+  categoria_id: number;
+  tematica_id?: number | null;
+  nombre: string;
+  descripcion?: string | null;
+  precio_base: number;
+  estado: string;
+  detalles: DetallePaquete[];
+};
+
+// ─── B2B: Schemas de creación (sin proveedor_id) ─────────────────────────────
+
+export type ProveedorServicioCreate = {
+  categoria_id: number;
+  nombre: string;
+  tipo: TipoItemCatalogo;
+  requiere_persona: boolean;
+  precio_unitario: number;
+  stock_maximo_simultaneo: number;
+  duracion_base_horas?: number | null;
+};
+
+export type ProveedorServicioUpdate = Partial<ProveedorServicioCreate> & {
+  estado?: string;
+};
+
+export type DetallePaqueteCreate = {
+  servicio_producto_id: number;
+  cantidad_incluida: number;
+};
+
+export type ProveedorPaqueteCreate = {
+  categoria_id: number;
+  tematica_id?: number | null;
+  nombre: string;
+  descripcion?: string | null;
+  precio_base: number;
+  detalles: DetallePaqueteCreate[];
+};
+
+export type ProveedorPaqueteUpdate = Partial<Omit<ProveedorPaqueteCreate, "detalles">> & {
+  estado?: string;
+  detalles?: DetallePaqueteCreate[];
+};
+
+export type DashboardStats = {
+  total_servicios: number;
+  total_paquetes: number;
+  total_reservas: number;
+};
+
+export type ProveedorPerfil = {
+  id: number;
+  usuario_id: number;
+  nombre_empresa: string;
+  ruc: string;
+  descripcion?: string | null;
+  distrito: string;
+  calificacion_promedio: number;
+  estado_verificacion: string;
+  capacidad_humana_total: number;
+};
+
 // ─── Chat Conversacional ─────────────────────────────────────────────────────
 
 /** Mensaje individual en la conversación del chat */
@@ -144,19 +275,6 @@ export type CheckoutReservaResponse = {
   monto_adelanto: number;
   monto_pendiente: number;
   mensaje: string;
-};
-
-export type ServicioProducto = {
-  id: number;
-  proveedor_id: number;
-  categoria_id?: number | null;
-  nombre: string;
-  tipo: string;
-  requiere_persona: boolean;
-  precio_unitario: number;
-  stock_maximo_simultaneo: number;
-  duracion_base_horas?: number | null;
-  estado: string;
 };
 
 // ─── UI State Types ──────────────────────────────────────────────────────────
