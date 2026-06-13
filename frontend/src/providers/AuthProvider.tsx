@@ -1,6 +1,6 @@
-import { createContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { authService, type RegistroProveedorDraft } from "../services/authService";
-import type { AuthUser, LoginDraft, TokenResponse } from "../types";
+import type { AuthUser, AuthModalMode, LoginDraft, RegistroClienteDraft, TokenResponse } from "../types";
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -9,7 +9,12 @@ type AuthContextType = {
   isLoading: boolean;
   login: (datos: LoginDraft) => Promise<void>;
   registroProveedor: (datos: RegistroProveedorDraft) => Promise<void>;
+  registroCliente: (datos: RegistroClienteDraft) => Promise<void>;
   logout: () => void;
+  // Modal de auth
+  authModalMode: AuthModalMode;
+  openAuthModal: (mode: "login" | "register") => void;
+  closeAuthModal: () => void;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem("festio_token"));
   const [isLoading, setIsLoading] = useState(true);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -63,11 +69,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleAuthSuccess(data);
   };
 
+  const registroCliente = async (datos: RegistroClienteDraft) => {
+    const data = await authService.registroCliente(datos);
+    await handleAuthSuccess(data);
+  };
+
   const logout = () => {
     localStorage.removeItem("festio_token");
     setToken(null);
     setUser(null);
   };
+
+  const openAuthModal = useCallback((mode: "login" | "register") => {
+    setAuthModalMode(mode);
+  }, []);
+
+  const closeAuthModal = useCallback(() => {
+    setAuthModalMode(null);
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -78,7 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         registroProveedor,
+        registroCliente,
         logout,
+        authModalMode,
+        openAuthModal,
+        closeAuthModal,
       }}
     >
       {children}

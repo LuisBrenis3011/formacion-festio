@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ClienteApp } from "./ClienteApp";
+import { AuthModal } from "./components/AuthModal";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import type { RolUsuario } from "./types";
 
 // Pantallas B2B
-import { LoginScreen } from "./screens/LoginScreen";
 import { ProveedorLayout } from "./screens/proveedor/ProveedorLayout";
 import { DashboardScreen } from "./screens/proveedor/DashboardScreen";
 import { InventarioScreen } from "./screens/proveedor/InventarioScreen";
@@ -12,30 +13,30 @@ import { PerfilScreen } from "./screens/proveedor/PerfilScreen";
 
 export default function App() {
   return (
-    <Routes>
-      {/* Rutas públicas / Cliente */}
-      <Route path="/login" element={<LoginScreen />} />
-      
-      {/* Ruta cliente — el chat se mantiene igual */}
-      <Route path="/" element={<ClienteApp />} />
-      <Route path="/chat" element={<ProtectedRoute rol="CLIENTE" />}>
-        <Route index element={<ClienteApp />} />
-      </Route>
+    <>
+      {/* Modal de auth global — se renderiza siempre, visible solo cuando authModalMode != null */}
+      <AuthModal />
 
-      {/* Rutas proveedor — Panel B2B protegidas por rol */}
-      <Route path="/proveedor" element={<ProtectedRoute rol="PROVEEDOR" />}>
-        <Route element={<ProveedorLayout />}>
-          <Route path="dashboard" element={<DashboardScreen />} />
-          <Route path="inventario" element={<InventarioScreen />} />
-          <Route path="paquetes" element={<PaquetesScreen />} />
-          <Route path="perfil" element={<PerfilScreen />} />
-          {/* Redirección por defecto */}
-          <Route path="" element={<Navigate to="dashboard" replace />} />
+      <Routes>
+        {/* Chat público — accesible sin login */}
+        <Route path="/" element={<ClienteApp />} />
+        <Route path="/chat" element={<ClienteApp />} />
+
+        {/* Rutas proveedor — Panel B2B protegidas por rol */}
+        <Route path="/proveedor" element={<ProtectedRoute rol="PROVEEDOR" />}>
+          <Route element={<ProveedorLayout />}>
+            <Route path="dashboard" element={<DashboardScreen />} />
+            <Route path="inventario" element={<InventarioScreen />} />
+            <Route path="paquetes" element={<PaquetesScreen />} />
+            <Route path="perfil" element={<PerfilScreen />} />
+            {/* Redirección por defecto */}
+            <Route path="" element={<Navigate to="dashboard" replace />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* 404 genérico */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* 404 genérico → al chat */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

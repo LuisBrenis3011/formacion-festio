@@ -7,7 +7,7 @@ type ProtectedRouteProps = {
 };
 
 export function ProtectedRoute({ rol }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, openAuthModal } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,13 +18,15 @@ export function ProtectedRoute({ rol }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Redirigir al chat y abrir el modal de login
+    openAuthModal("login");
+    return <Navigate to="/" replace />;
   }
 
   if (rol && user?.rol !== rol) {
     // Si el rol no coincide, redirigimos a donde corresponda
     if (user?.rol === "PROVEEDOR") return <Navigate to="/proveedor/dashboard" replace />;
-    if (user?.rol === "CLIENTE") return <Navigate to="/chat" replace />;
+    if (user?.rol === "CLIENTE") return <Navigate to="/" replace />;
     return <Navigate to="/" replace />;
   }
 

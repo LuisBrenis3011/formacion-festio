@@ -283,6 +283,16 @@ export type Screen = "chat" | "detail" | "success";
 
 export type AuthTab = "login" | "register";
 
+export type AuthModalMode = "login" | "register" | null;
+
+export type RegistroClienteDraft = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono?: string;
+  password: string;
+};
+
 export type EventDraft = {
   fecha: string;
   horaInicio: string;

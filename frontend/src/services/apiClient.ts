@@ -26,9 +26,9 @@ export function readApiError(payload: unknown, status: number): string {
 export async function requestAuthJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("festio_token");
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...init.headers,
+    ...(init.headers as Record<string, string>),
   };
 
   if (token) {
