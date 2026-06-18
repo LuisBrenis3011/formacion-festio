@@ -574,6 +574,7 @@ h1, h2, h3, p { margin: 0; }
 .results-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
   gap: 18px;
 }
 
@@ -597,6 +598,7 @@ h1, h2, h3, p { margin: 0; }
   position: relative;
   display: flex;
   flex-direction: column;
+  align-self: start;
   gap: 14px;
   padding: 22px;
   background: white;
@@ -1607,6 +1609,18 @@ input[readonly] { color: var(--muted); background: var(--line-soft); }
   margin-bottom: 12px;
   position: relative;
   width: 100%;
+}
+
+.chat-input-area > .filter-panel-wrapper {
+  width: calc(100% - 32px);
+  max-width: 928px;
+  margin: 0 auto 12px;
+  padding: 0;
+}
+
+.chat-sidebar .filter-panel-wrapper {
+  width: calc(100% - 28px);
+  padding: 0;
 }
 
 .filter-toggle-btn {
