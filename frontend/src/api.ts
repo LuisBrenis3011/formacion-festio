@@ -1,10 +1,14 @@
 import type {
+  Categoria,
   ChatPayload,
   CheckoutClienteCreate,
   CheckoutReservaResponse,
   PreReservaPayload,
   PreReservaResponse,
+  ProveedorPerfil,
   RecomendacionResponse,
+  ResenaPublicaCreate,
+  ResenaPublicaOut,
   ServicioProducto,
 } from "./types";
 
@@ -72,5 +76,32 @@ export function checkoutSimulado(reservaTempId: string, datos: CheckoutClienteCr
 export function listarServiciosProveedor(proveedorId: number) {
   return requestJson<ServicioProducto[]>(`/api/catalogo/servicios?proveedor_id=${proveedorId}`, {
     method: "GET",
+  });
+}
+
+export function listarProveedores() {
+  return requestJson<ProveedorPerfil[]>("/api/proveedores/", {
+    method: "GET",
+  });
+}
+
+export function listarCategorias() {
+  return requestJson<Categoria[]>("/api/catalogo/categorias", {
+    method: "GET",
+  });
+}
+
+export function fetchResenas(proveedorId: number) {
+  return requestJson<ResenaPublicaOut[]>(`/api/resenas/proveedor/${proveedorId}`, {
+    method: "GET",
+  });
+}
+
+export function crearResena(datos: ResenaPublicaCreate) {
+  const token = localStorage.getItem("festio_token");
+  return requestJson<ResenaPublicaOut>("/api/resenas/publica", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify(datos),
   });
 }

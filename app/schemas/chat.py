@@ -28,12 +28,18 @@ class RecomendacionRequest(BaseModel):
     aforo_estimado: Optional[int] = None
     distrito: Optional[str] = None
     presupuesto_maximo: Optional[float] = None
+    # ── Filtros opcionales del usuario ────────────────────────────────────
+    filtro_proveedor_ids: List[int] = Field(default_factory=list)
+    filtro_categoria_ids: List[int] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):
     mensaje: str
     historial: List[dict] = Field(default_factory=list)
     estado_conversacion: Optional[RecomendacionRequest] = None
+    # ── Filtros opcionales del usuario (se copian al estado_conversacion) ──
+    filtro_proveedor_ids: List[int] = Field(default_factory=list)
+    filtro_categoria_ids: List[int] = Field(default_factory=list)
 
 
 class GeminiRecomendacionSchema(BaseModel):

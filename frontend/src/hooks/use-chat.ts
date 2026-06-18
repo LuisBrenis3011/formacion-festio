@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRecomendarEvento } from "./use-recomendar";
 import { readError } from "../lib/format";
-import type { ChatMessage, RecomendacionRequest } from "../types";
+import type { ChatFilters, ChatMessage, RecomendacionRequest } from "../types";
 
 let messageIdCounter = 0;
 function nextId() {
@@ -15,6 +15,10 @@ function nextId() {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationState, setConversationState] = useState<RecomendacionRequest | null>(null);
+  const [filters, setFilters] = useState<ChatFilters>({
+    proveedor_ids: [],
+    categoria_ids: [],
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchMutation = useRecomendarEvento();
   const latestRecommendation = useMemo(() => {
@@ -48,7 +52,13 @@ export function useChat() {
       }));
 
       searchMutation.mutate(
-        { mensaje: text, historial, estado_conversacion: conversationState },
+        { 
+          mensaje: text, 
+          historial, 
+          estado_conversacion: conversationState,
+          filtro_proveedor_ids: filters.proveedor_ids,
+          filtro_categoria_ids: filters.categoria_ids,
+        },
         {
           onSuccess: (data) => {
             setConversationState(data.estado_conversacion ?? conversationState);
@@ -77,7 +87,7 @@ export function useChat() {
         },
       );
     },
-    [conversationState, messages, searchMutation],
+    [conversationState, messages, searchMutation, filters],
   );
 
   const resetChat = useCallback(() => {
@@ -92,5 +102,7 @@ export function useChat() {
     messagesEndRef,
     latestRecommendation,
     resetChat,
+    filters,
+    setFilters,
   };
 }

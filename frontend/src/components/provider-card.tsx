@@ -1,5 +1,7 @@
-import { Check, ChevronRight, Star } from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronRight, Star, MessageSquare } from "lucide-react";
 import { money } from "@/lib/format";
+import { ReviewsSection } from "./reviews-section";
 import type { ProveedorRecomendado } from "../types";
 
 type ProviderCardProps = {
@@ -30,6 +32,8 @@ export function ProviderCard({
   featured = false,
   rank = 0,
 }: ProviderCardProps) {
+  const [showReviews, setShowReviews] = useState(false);
+
   const rating = provider.calificacion_promedio;
   const items = provider.paquete.incluye;
 
@@ -65,10 +69,14 @@ export function ProviderCard({
         {provider.distrito && ` · ${provider.distrito}`}
       </span>
 
-      {rating != null && rating > 0 && (
+      {rating != null && rating > 0 ? (
         <div className="card-rating">
           <span className="card-stars">{renderStars(rating)}</span>
           {rating.toFixed(1)}
+        </div>
+      ) : (
+        <div className="card-rating empty">
+          Nuevo proveedor
         </div>
       )}
 
@@ -95,10 +103,34 @@ export function ProviderCard({
           <span className="card-price-label">Precio base</span>
           <span className="card-price-value">{money.format(provider.paquete.precio_base)}</span>
         </div>
-        <button className="card-cta" type="button" tabIndex={-1}>
-          Ver paquete <ChevronRight size={16} />
-        </button>
+        <div className="card-actions-wrapper">
+          <button 
+            type="button" 
+            className="btn-ver-resenas"
+            aria-expanded={showReviews}
+            aria-label={showReviews ? "Ocultar reseñas" : "Ver reseñas"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReviews((current) => !current);
+            }}
+          >
+            <MessageSquare size={14} /> Reseñas
+          </button>
+          <button className="card-cta" type="button" tabIndex={-1}>
+            Ver paquete <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
+
+      {showReviews && (
+        <div
+          className="card-reviews-container"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <ReviewsSection proveedorId={provider.proveedor_id} />
+        </div>
+      )}
     </div>
   );
 }

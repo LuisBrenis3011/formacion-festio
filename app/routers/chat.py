@@ -21,6 +21,8 @@ async def chat_recomendar(
         mensaje=datos.mensaje,
         historial=datos.historial,
         estado_conversacion=datos.estado_conversacion,
+        filtro_proveedor_ids=datos.filtro_proveedor_ids,
+        filtro_categoria_ids=datos.filtro_categoria_ids,
         db=db,
     )
     return respuesta

@@ -32,6 +32,8 @@ export function ClienteApp() {
           loadingDetail={booking.loadingDetail}
           latestRecommendation={chat.latestRecommendation}
           onGoHome={chat.resetChat}
+          filters={chat.filters}
+          setFilters={chat.setFilters}
         />
       ) : screen === "detail" && booking.selectedProvider ? (
         <DetailScreen
