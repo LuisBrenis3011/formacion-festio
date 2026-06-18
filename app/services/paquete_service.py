@@ -11,7 +11,6 @@ from app.schemas.catalogo import PaqueteCreate, PaqueteUpdate
 def listar_paquetes(
     proveedor_id: Optional[int],
     categoria_id: Optional[int],
-    tematica_id: Optional[int],
     db: Session,
 ) -> List[Paquete]:
     """Lista paquetes activos con filtros opcionales."""
@@ -20,8 +19,6 @@ def listar_paquetes(
         query = query.filter(Paquete.proveedor_id == proveedor_id)
     if categoria_id:
         query = query.filter(Paquete.categoria_id == categoria_id)
-    if tematica_id:
-        query = query.filter(Paquete.tematica_id == tematica_id)
     return query.all()
 
 
@@ -38,7 +35,6 @@ def crear_paquete(datos: PaqueteCreate, db: Session) -> Paquete:
     paquete = Paquete(
         proveedor_id=datos.proveedor_id,
         categoria_id=datos.categoria_id,
-        tematica_id=datos.tematica_id,
         nombre=datos.nombre,
         descripcion=datos.descripcion,
         precio_base=datos.precio_base,

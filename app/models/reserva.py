@@ -26,6 +26,7 @@ class Evento(Base):
 
     id                  = Column(Integer, primary_key=True)
     cliente_id          = Column(Integer, ForeignKey("cliente.id"), nullable=False)
+    categoria_id        = Column(Integer, ForeignKey("categoria.id"), nullable=True)
     nombre_evento       = Column(String(150), nullable=False)
     tipo_evento         = Column(String(100))
     fecha_evento_inicio = Column(TIMESTAMP, nullable=False)
@@ -34,8 +35,9 @@ class Evento(Base):
     aforo_estimado      = Column(Integer)
 
     # ── Relaciones ────────────────────────────────────────────────────────────
-    cliente  = relationship("Cliente", back_populates="eventos")
-    reservas = relationship("Reserva", back_populates="evento")
+    cliente   = relationship("Cliente",   back_populates="eventos")
+    categoria = relationship("Categoria", back_populates="eventos")
+    reservas  = relationship("Reserva",   back_populates="evento")
 
 
 class Reserva(Base):
@@ -55,6 +57,7 @@ class Reserva(Base):
     id              = Column(Integer, primary_key=True)
     evento_id       = Column(Integer, ForeignKey("evento.id"), nullable=False)
     proveedor_id    = Column(Integer, ForeignKey("proveedor.id"), nullable=False)
+    tematica_id     = Column(Integer, ForeignKey("tematica.id"), nullable=True)
     estado          = Column(
         Enum(EstadoReserva, name="tipo_estado_reserva"),
         nullable=False,
@@ -72,6 +75,7 @@ class Reserva(Base):
     # ── Relaciones ────────────────────────────────────────────────────────────
     evento         = relationship("Evento",          back_populates="reservas")
     proveedor      = relationship("Proveedor",       back_populates="reservas")
+    tematica       = relationship("Tematica",        back_populates="reservas")
     detalles       = relationship("DetalleReserva",  back_populates="reserva",
                                   cascade="all, delete-orphan")
     pagos          = relationship("PagoTransaccion", back_populates="reserva")

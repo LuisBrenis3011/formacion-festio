@@ -1,6 +1,7 @@
 """
-Motor de Recomendación Jerárquico v2.
+Motor de Recomendación Jerárquico v3.
 Consciente del inventario. Comportamiento de vendedor real.
+Categorías y temáticas dinámicas desde la base de datos.
 """
 import re
 from datetime import datetime
@@ -10,7 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.catalogo import DetallePaquete, Paquete, ServicioProducto
+from app.models.catalogo import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
 from app.models.disponibilidad import OcupacionServicioProducto
 from app.models.enums import EstadoBasico, EstadoVerificacion
 from app.models.usuario import Proveedor
@@ -21,36 +22,18 @@ from app.schemas.chat import (
 from app.schemas.reserva import PreReservaCreate, PreReservaItemCreate
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAXONOMÍA SEPARADA (Regla 1)
+# HEURÍSTICAS DE NEGOCIO (no son datos de catálogo)
 # ═══════════════════════════════════════════════════════════════════════════════
-TIPOS_EVENTO: Dict[str, Set[str]] = {
-    "infantil":   {"show infantil", "baby shower", "revelacion de genero", "fiesta infantil", "infantil", "ninos"},
-    "hora_loca":  {"hora loca", "15 anos", "quinceanero", "quinceañera", "boda", "aniversario", "matrimonio"},
-    "adultos":    {"chicoteca", "fiesta 20", "dj", "discoteca", "karaoke", "adultos"},
-    "mobiliario": {"toldo", "toldos", "silla", "sillas", "mesa", "mesas", "decoracion", "mobiliario", "carpa"},
-    "activacion": {"inauguracion", "negocio", "activacion", "corporativo", "empresa"},
-}
-TEMATICAS: Set[str] = {
-    "mario bros", "luigi", "cars", "mickey", "mickey mouse", "minnie", "minnie mouse",
-    "pluto", "goofy", "spiderman", "sonic", "granja de zenon", "bartolito",
-    "plim plim", "blanca nieves", "elsa", "frozen", "merlina", "kpop",
-    "barbie", "minecraft", "princesas", "avengers", "dinosaurios", "unicornio",
-    "paw patrol", "peppa pig", "toy story", "moana", "encanto",
-}
-SERVICIOS_EXTRA: Set[str] = {
-    "caritas pintadas", "carita pintada", "burbujas", "burbuja",
-    "luces", "luz", "zancos", "zanco", "arlequin",
-}
 CROSS_SELL: Dict[str, Set[str]] = {
-    "infantil":   {"caritas pintadas", "burbujas", "muneco", "personaje"},
-    "adultos":    {"luces", "zancos", "arlequin"},
-    "hora_loca":  {"luces", "zancos", "arlequin", "bailarin"},
-    "mobiliario": {"silla", "mesa", "toldo", "decoracion"},
+    "shows infantiles":    {"caritas pintadas", "burbujas", "muneco", "personaje"},
+    "personal y musica":   {"luces", "zancos", "arlequin"},
+    "hora loca":           {"luces", "zancos", "arlequin", "bailarin"},
+    "mobiliario y decoracion": {"silla", "mesa", "toldo", "decoracion"},
 }
 # Palabras de servicio aislado (Regla 3: detectar CASO A)
 SERVICIO_AISLADO: Dict[str, str] = {
-    "dj": "adultos", "animadora": "infantil", "animador": "infantil",
-    "bailarina": "hora_loca", "bailarin": "hora_loca",
+    "dj": "Personal y Música", "animadora": "Shows Infantiles", "animador": "Shows Infantiles",
+    "bailarina": "Hora Loca", "bailarin": "Hora Loca",
 }
 STOPWORDS: Set[str] = {
     "show", "fiesta", "evento", "reunion", "celebracion", "paquete",
@@ -62,19 +45,31 @@ PALABRAS_EXPERIENCIA: Set[str] = {
     "show", "paquete", "evento", "fiesta", "infantil", "completo",
 }
 
+
+def _cargar_contexto_db(db: Session) -> Tuple[List[Categoria], List[Tematica], Set[str]]:
+    """Carga categorías, temáticas y nombres normalizados desde la BD."""
+    categorias_db = db.query(Categoria).all()
+    tematicas_db = db.query(Tematica).all()
+    nombres_tematicas = {_norm(t.nombre) for t in tematicas_db}
+    return categorias_db, tematicas_db, nombres_tematicas
+
+
 def recomendar_evento(datos: RecomendacionRequest, db: Session) -> RecomendacionResponse:
     texto = _norm(datos.mensaje)
 
-    # ── Fase 1: Detección jerárquica (Regla 2) ────────────────────────────
-    tipo_evento = _detectar_tipo_evento(texto)
-    tematica = _detectar_tematica(texto)
-    servicios_pedidos = _detectar_servicios_extra(texto)
-    cantidades = _detectar_cantidades(texto, datos.aforo_estimado)
+    # ── Cargar contexto dinámico desde la BD ──────────────────────────────
+    categorias_db, tematicas_db, nombres_tematicas = _cargar_contexto_db(db)
+
+    # ── Fase 1: Detección jerárquica — Gemini provee, texto como apoyo ───
+    tipo_evento = datos.tipo_evento
+    tematica = datos.tematica_detectada
+    servicios_pedidos = set(datos.servicios_extra_detectados) if datos.servicios_extra_detectados else set()
+    cantidades = datos.cantidades_servicios or _detectar_cantidades(texto, datos.aforo_estimado)
     busca_barato = _detecta_bajo_presupuesto(texto)
 
-    # Inferencia jerárquica
+    # Inferencia jerárquica: si hay temática pero no tipo, inferir Shows Infantiles
     if tipo_evento is None and tematica:
-        tipo_evento = "infantil"
+        tipo_evento = "Shows Infantiles"
 
     es_ambiguo = tipo_evento is None and tematica is None and not servicios_pedidos
 
@@ -89,7 +84,6 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
         .options(
             joinedload(Proveedor.paquetes).joinedload(Paquete.detalles)
                 .joinedload(DetallePaquete.servicio_producto),
-            joinedload(Proveedor.paquetes).joinedload(Paquete.tematica),
             joinedload(Proveedor.paquetes).joinedload(Paquete.categoria),
             joinedload(Proveedor.servicios_productos),
         )
@@ -114,23 +108,36 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
             paq_activos, datos.fecha_evento_inicio, datos.fecha_evento_fin, db
         )
 
-        # ── Fase 3: Elegir paquete ────────────────────────────────────────
+# ── Fase 3: Elegir paquete ────────────────────────────────────────
         if es_ambiguo:
             pool = paq_con_stock or paq_activos
             mejor = min(pool, key=lambda p: float(p.precio_base or 0))
             score = 10
         elif modo_servicio:
             pool = paq_con_stock or paq_activos
-            mejor = min(pool, key=lambda p: float(p.precio_base or 0))
-            score = 5
+            
+            # FIX: Asegurar que el paquete base pertenezca a la categoría detectada
+            if tipo_evento:
+                pool_filtrado = [p for p in pool if _inferir_tipo_paquete(p) and _norm(_inferir_tipo_paquete(p)) == _norm(tipo_evento)]
+            else:
+                pool_filtrado = pool
+            
+            if pool_filtrado:
+                mejor = min(pool_filtrado, key=lambda p: float(p.precio_base or 0))
+                score = 15  # Puntaje alto porque tiene la categoría correcta
+            else:
+                # Si el proveedor no tiene paquetes de esta categoría, penalizamos fuertemente
+                mejor = min(pool, key=lambda p: float(p.precio_base or 0))
+                score = -20
         else:
             mejor, score = _elegir_paquete(
-                paq_con_stock or paq_activos, texto, tipo_evento, tematica
+                paq_con_stock or paq_activos, texto, tipo_evento, tematica,
+                nombres_tematicas,
             )
             if not mejor:
                 pool = paq_con_stock or paq_activos
                 mejor = min(pool, key=lambda p: float(p.precio_base or 0))
-                score = 0
+                score = -20 # Se va al fondo de las alternativas
 
         incluye = _items_de_paquete(mejor)
         ids_incluidos = {i.servicio_producto_id for i in incluye}
@@ -212,29 +219,13 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
     )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# DETECCIÓN JERÁRQUICA (Regla 2)
+# UTILIDADES DE TEXTO
 # ═══════════════════════════════════════════════════════════════════════════════
 def _norm(texto: str) -> str:
     t = texto.lower()
     for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
         t = t.replace(a, b)
     return t
-
-def _detectar_tipo_evento(texto: str) -> Optional[str]:
-    for tipo, palabras in TIPOS_EVENTO.items():
-        for p in palabras:
-            if _norm(p) in texto:
-                return tipo
-    return None
-
-def _detectar_tematica(texto: str) -> Optional[str]:
-    for t in sorted(TEMATICAS, key=len, reverse=True):
-        if _norm(t) in texto:
-            return t
-    return None
-
-def _detectar_servicios_extra(texto: str) -> Set[str]:
-    return {s for s in SERVICIOS_EXTRA if _norm(s) in texto}
 
 def _detectar_cantidades(texto: str, aforo: Optional[int]) -> Dict[str, int]:
     c: Dict[str, int] = {}
@@ -300,6 +291,7 @@ def _filtrar_por_inventario(
 def _elegir_paquete(
     paquetes: List[Paquete], texto: str,
     tipo_evento: Optional[str], tematica: Optional[str],
+    nombres_tematicas: Set[str],
 ) -> Tuple[Optional[Paquete], int]:
     mejor: Optional[Paquete] = None
     mejor_score = -999
@@ -307,22 +299,21 @@ def _elegir_paquete(
     for paq in paquetes:
         score = 0
         nom = _norm(f"{paq.nombre or ''} {paq.descripcion or ''}")
-        tem_paq = _norm(paq.tematica.nombre if paq.tematica else "")
 
-        # Nivel 1: CONTEXTO (+20 / -20) — Regla 6: usar categoría primero
+        # Nivel 1: CONTEXTO (+20 / -20) — Regla 6: comparar contra categoría del paquete
         if tipo_evento:
             tipo_paq = _inferir_tipo_paquete(paq)
-            if tipo_paq == tipo_evento:
+            if tipo_paq and _norm(tipo_paq) == _norm(tipo_evento):
                 score += 20
-            elif tipo_paq and tipo_paq != tipo_evento:
+            elif tipo_paq and _norm(tipo_paq) != _norm(tipo_evento):
                 score -= 20
 
         # Nivel 2: TEMÁTICA (+20 / -20)
         if tematica:
             t_n = _norm(tematica)
-            if t_n in tem_paq or t_n in nom:
+            if t_n in nom:
                 score += 20
-            elif _tiene_otra_tematica(nom, tem_paq, t_n):
+            elif _tiene_otra_tematica(nom, "", t_n, nombres_tematicas):
                 score -= 20
 
         # Nivel 3: COINCIDENCIA GENERAL (+5 / +1)
@@ -331,7 +322,7 @@ def _elegir_paquete(
                 if palabra in nom:
                     score += 1
                 continue
-            if palabra in nom or palabra in tem_paq:
+            if palabra in nom:
                 score += 5
 
         # Nivel 4: SERVICIOS (+2)
@@ -350,26 +341,19 @@ def _elegir_paquete(
     return (mejor, mejor_score) if mejor and mejor_score > 0 else (None, mejor_score)
 
 def _inferir_tipo_paquete(paq: Paquete) -> Optional[str]:
-    """Regla 6: Priorizar categoría > temática > nombre."""
-    # 1. Por categoría del paquete
+    """Regla 6: Retorna el nombre de categoría del paquete directamente desde la BD."""
     if paq.categoria:
-        cat = _norm(paq.categoria.nombre or "")
-        for tipo, palabras in TIPOS_EVENTO.items():
-            if any(_norm(p) in cat for p in palabras):
-                return tipo
-    # 2. Por temática (si tiene temática → infantil)
-    if paq.tematica:
-        return "infantil"
-    # 3. Fallback: por nombre/descripción
-    combined = _norm(f"{paq.nombre or ''} {paq.descripcion or ''}")
-    for tipo, palabras in TIPOS_EVENTO.items():
-        if any(_norm(p) in combined for p in palabras):
-            return tipo
+        return paq.categoria.nombre
     return None
 
-def _tiene_otra_tematica(nombre: str, tematica_paq: str, buscada: str) -> bool:
+def _tiene_otra_tematica(
+    nombre: str, tematica_paq: str, buscada: str,
+    nombres_tematicas: Set[str],
+) -> bool:
+    """Detecta si el paquete tiene una temática diferente a la buscada.
+    Usa la lista de temáticas de la BD en lugar de un set hardcodeado."""
     combined = f"{nombre} {tematica_paq}"
-    return any(_norm(t) != buscada and _norm(t) in combined for t in TEMATICAS)
+    return any(t != buscada and t in combined for t in nombres_tematicas)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # INVENTARIO Y DISPONIBILIDAD
@@ -424,7 +408,14 @@ def _cross_sell(
     cantidades: Dict[str, int],
 ) -> List[ItemRecomendado]:
     adicionales: List[ItemRecomendado] = []
-    palabras_cross = CROSS_SELL.get(tipo_evento or "", set())
+    # Buscar cross-sell por nombre normalizado de categoría
+    palabras_cross: Set[str] = set()
+    if tipo_evento:
+        tipo_norm = _norm(tipo_evento)
+        for clave, palabras in CROSS_SELL.items():
+            if _norm(clave) == tipo_norm:
+                palabras_cross = palabras
+                break
 
     for srv in servicios:
         if srv.id in ids_incluidos:
@@ -475,21 +466,30 @@ def _calc_sub(srv: ServicioProducto, cant: int, horas: Optional[float]) -> float
 def _r(v: float) -> float:
     return float(Decimal(str(v)).quantize(Decimal("0.01")))
 
+
 def _crear_respuesta(
     principales: List[ProveedorRecomendado], secundarios: List[ProveedorRecomendado],
     requiere_fecha: bool, faltantes: List[str], tematica: Optional[str],
 ) -> str:
     if not principales and not secundarios:
         return "No encontré paquetes para esa búsqueda. Prueba con otra temática, fecha u horario."
-    if principales:
+
+    if not principales and secundarios:
+        # Antes decía genéricamente "no encontré coincidencias exactas"
+        # Ahora es específico con la temática buscada
+        if tematica:
+            txt = f"No encontré paquetes de '{tematica.title()}' disponibles."
+        else:
+            txt = "No encontré coincidencias exactas."
+        txt += f" Te muestro {len(secundarios)} alternativa{'s' if len(secundarios) > 1 else ''} similar{'es' if len(secundarios) > 1 else ''}."
+    else:
         n = len(principales)
         txt = f"Encontré {'una opción ideal' if n == 1 else f'{n} opciones'} que coincide{'n' if n > 1 else ''} con tu búsqueda."
         if tematica:
             txt = txt.replace("tu búsqueda", f"'{tematica.title()}'")
         if secundarios:
             txt += f" También te sugiero {len(secundarios)} alternativas."
-    else:
-        txt = "No encontré coincidencias exactas, pero aquí tienes las mejores alternativas disponibles."
+
     if any(p.puede_prebloquear for p in principales + secundarios):
         txt += " Si alguna te gusta, ya puedes enviarla a prebloqueo."
     elif faltantes:
@@ -497,6 +497,7 @@ def _crear_respuesta(
     elif requiere_fecha:
         txt += " Necesito fecha y hora para confirmar disponibilidad."
     return txt
+
 
 def _accion(provs: List[ProveedorRecomendado], faltantes: List[str]) -> str:
     if not provs:

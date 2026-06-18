@@ -24,6 +24,7 @@ class Categoria(Base):
     tematicas           = relationship("Tematica",         back_populates="categoria")
     servicios_productos = relationship("ServicioProducto", back_populates="categoria")
     paquetes            = relationship("Paquete",          back_populates="categoria")
+    eventos             = relationship("Evento",           back_populates="categoria")
 
 
 class Tematica(Base):
@@ -38,6 +39,7 @@ class Tematica(Base):
     # ── Relaciones ────────────────────────────────────────────────────────────
     categoria = relationship("Categoria", back_populates="tematicas")
     paquetes  = relationship("Paquete",   back_populates="tematica")
+    reservas  = relationship("Reserva",   back_populates="tematica")
 
 
 class ServicioProducto(Base):
