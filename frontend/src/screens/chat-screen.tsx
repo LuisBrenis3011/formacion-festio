@@ -3,8 +3,9 @@ import { ChatBubble } from "../components/chat-bubble";
 import { ChatInput } from "../components/chat-input";
 import { ResultsPanel } from "../components/results-panel";
 import { TypingIndicator } from "../components/typing-indicator";
+import { FilterPanel } from "../components/filter-panel";
 import { SUGGESTION_CARDS } from "../lib/constants";
-import type { ChatMessage, ProveedorRecomendado, RecomendacionResponse } from "../types";
+import type { ChatFilters, ChatMessage, ProveedorRecomendado, RecomendacionResponse } from "../types";
 
 type ChatScreenProps = {
   messages: ChatMessage[];
@@ -15,6 +16,8 @@ type ChatScreenProps = {
   loadingDetail: boolean;
   latestRecommendation: RecomendacionResponse | null;
   onGoHome: () => void;
+  filters: ChatFilters;
+  setFilters: (filters: ChatFilters) => void;
 };
 
 export function ChatScreen({
@@ -26,6 +29,8 @@ export function ChatScreen({
   loadingDetail,
   latestRecommendation,
   onGoHome,
+  filters,
+  setFilters,
 }: ChatScreenProps) {
   const thread = (
     <>
@@ -37,7 +42,10 @@ export function ChatScreen({
         <div ref={messagesEndRef} />
       </div>
 
-      <ChatInput onSend={handleSend} isPending={isPending} />
+      <div className="chat-input-area">
+        <FilterPanel filters={filters} onChange={setFilters} />
+        <ChatInput onSend={handleSend} isPending={isPending} />
+      </div>
     </>
   );
 
@@ -89,7 +97,12 @@ export function ChatScreen({
         thread
       )}
 
-      {messages.length === 0 && <ChatInput onSend={handleSend} isPending={isPending} />}
+      {messages.length === 0 && (
+        <div className="chat-input-area fixed-bottom">
+          <FilterPanel filters={filters} onChange={setFilters} />
+          <ChatInput onSend={handleSend} isPending={isPending} />
+        </div>
+      )}
     </main>
   );
 }

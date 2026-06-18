@@ -27,6 +27,8 @@ export function useRecomendarEvento() {
         mensaje: cleanQuery,
         historial: payload.historial,
         estado_conversacion: payload.estado_conversacion ?? null,
+        filtro_proveedor_ids: payload.filtro_proveedor_ids ?? [],
+        filtro_categoria_ids: payload.filtro_categoria_ids ?? [],
       });
 
       // Runtime-validate the response shape with Zod
