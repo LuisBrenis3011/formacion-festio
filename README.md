@@ -49,7 +49,7 @@ Asegúrate de tener instalados los siguientes componentes antes de iniciar:
    ```
 
 4. **Configurar las variables de entorno:**
-   Copia el archivo `.env.example` y renómbralo a `.env`. Asegúrate de completar los datos de conexión a tu base de datos PostgreSQL y Redis:
+   Copia el archivo `.env.example` y renómbralo a `.env`. El backend puede trabajar en local o apuntando a servicios remotos; hoy la plantilla ya está lista para **Supabase PostgreSQL**, **Upstash Redis** y `GEMINI_API_KEY`. La misma colección de variables se reutiliza después en GCP/Cloud Run:
    ```bash
    cp .env.example .env
    ```
