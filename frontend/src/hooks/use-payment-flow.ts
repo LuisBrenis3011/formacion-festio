@@ -82,14 +82,33 @@ export function usePaymentFlow({ onSuccess }: { onSuccess: () => void }) {
     }
   }
 
-  async function submitPayment(event: FormEvent<HTMLFormElement>, direccion: string) {
+  async function submitPayment(
+    event: FormEvent<HTMLFormElement>,
+    direccion: string,
+    isAuthenticated: boolean,
+    user: { nombre: string; apellido: string; email: string } | null,
+  ) {
     event.preventDefault();
     if (!preReserva) return;
 
-    const payload =
-      authTab === "login"
-        ? loginPayload(loginDraft, direccion)
-        : registerPayload(registerDraft, direccion);
+    let payload;
+    if (isAuthenticated && user) {
+      // User already authenticated — use their data directly
+      const metodoPago = loginDraft.metodoPago || registerDraft.metodoPago || "TARJETA";
+      payload = {
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        password: "authenticated_session",
+        direccion,
+        metodo_pago: metodoPago,
+      };
+    } else {
+      payload =
+        authTab === "login"
+          ? loginPayload(loginDraft, direccion)
+          : registerPayload(registerDraft, direccion);
+    }
 
     setLoadingPayment(true);
     setError(null);
