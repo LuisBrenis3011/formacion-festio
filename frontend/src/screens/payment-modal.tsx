@@ -110,7 +110,7 @@ export function PaymentModal({
 
               {authTab === "register" ? (
                 <>
-                  <label>
+                  <label className="wide-field">
                     <span>Nombre</span>
                     <input
                       required
@@ -118,7 +118,7 @@ export function PaymentModal({
                       onChange={(e) => setRegisterDraft((prev) => ({ ...prev, nombre: e.target.value }))}
                     />
                   </label>
-                  <label>
+                  <label className="wide-field">
                     <span>Apellido</span>
                     <input
                       required
@@ -135,14 +135,14 @@ export function PaymentModal({
                       onChange={(e) => setRegisterDraft((prev) => ({ ...prev, email: e.target.value }))}
                     />
                   </label>
-                  <label>
+                  <label className="wide-field">
                     <span>Teléfono</span>
                     <input
                       value={registerDraft.telefono}
                       onChange={(e) => setRegisterDraft((prev) => ({ ...prev, telefono: e.target.value }))}
                     />
                   </label>
-                  <label>
+                  <label className="wide-field">
                     <span>Password</span>
                     <input
                       required
