@@ -64,10 +64,12 @@ export function prebloquearReserva(payload: PreReservaPayload) {
 }
 
 export function checkoutSimulado(reservaTempId: string, datos: CheckoutClienteCreate) {
+  const token = localStorage.getItem("festio_token");
   return requestJson<CheckoutReservaResponse>(
     `/api/reservas/checkout-simulado/${reservaTempId}`,
     {
       method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: JSON.stringify(datos),
     },
   );

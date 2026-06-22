@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppHeader } from "./components/app-header";
+import { useAuth } from "./hooks/useAuth";
 import { useChat } from "./hooks/use-chat";
 import { useBookingDetail } from "./hooks/use-booking-detail";
 import { useExtras } from "./hooks/use-extras";
@@ -12,6 +13,7 @@ import type { Screen } from "./types";
 
 export function ClienteApp() {
   const [screen, setScreen] = useState<Screen>("chat");
+  const { isAuthenticated, user } = useAuth();
 
   const chat = useChat();
   const booking = useBookingDetail(() => setScreen("detail"));
@@ -68,6 +70,8 @@ export function ClienteApp() {
       {payment.paymentOpen && payment.preReserva && (
         <PaymentModal
           preReserva={payment.preReserva}
+          isAuthenticated={isAuthenticated}
+          user={user}
           authTab={payment.authTab}
           setAuthTab={payment.setAuthTab}
           registerDraft={payment.registerDraft}
@@ -76,7 +80,9 @@ export function ClienteApp() {
           setLoginDraft={payment.setLoginDraft}
           loadingPayment={payment.loadingPayment}
           error={payment.error}
-          onSubmit={(e) => payment.submitPayment(e, booking.eventDraft.direccion)}
+          onSubmit={(e, metodoPago) =>
+            payment.submitPayment(e, booking.eventDraft.direccion, metodoPago, isAuthenticated, user)
+          }
           onClose={() => payment.setPaymentOpen(false)}
         />
       )}
