@@ -10,3 +10,7 @@ build/
 .vscode/
 *.db
 *.sqlite3
+
+AGENTS.md
+plan-despliegue.md
+
