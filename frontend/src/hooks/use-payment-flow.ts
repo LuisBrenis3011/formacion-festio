@@ -17,6 +17,7 @@ import type {
   ProveedorRecomendado,
   RegisterDraft,
   ServicioProducto,
+  AuthUser,
 } from "../types";
 
 export type ContinueToPaymentParams = {
@@ -82,14 +83,33 @@ export function usePaymentFlow({ onSuccess }: { onSuccess: () => void }) {
     }
   }
 
-  async function submitPayment(event: FormEvent<HTMLFormElement>, direccion: string) {
+  async function submitPayment(
+    event: FormEvent<HTMLFormElement>,
+    direccion: string,
+    metodoPago: string,
+    isAuthenticated: boolean,
+    user: AuthUser | null,
+  ) {
     event.preventDefault();
     if (!preReserva) return;
 
-    const payload =
-      authTab === "login"
-        ? loginPayload(loginDraft, direccion)
-        : registerPayload(registerDraft, direccion);
+    let payload;
+    if (isAuthenticated && user) {
+      payload = {
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        password: "authenticated_session",
+        direccion,
+        metodo_pago: metodoPago,
+      };
+    } else {
+      payload =
+        authTab === "login"
+          ? loginPayload(loginDraft, direccion)
+          : registerPayload(registerDraft, direccion);
+      payload.metodo_pago = metodoPago;
+    }
 
     setLoadingPayment(true);
     setError(null);

@@ -123,12 +123,20 @@ async def procesar_mensaje(
     historial: list,
     estado_conversacion: RecomendacionRequest | None,
     db: Session,
+    filtro_proveedor_ids: list[int] | None = None,
+    filtro_categoria_ids: list[int] | None = None,
 ) -> dict:
     """
     Procesa el mensaje del cliente y retorna recomendaciones.
     """
     delta = await parsear_mensaje_cliente(mensaje, historial, estado_conversacion, db)
     request_estructurado = fusionar_estado_conversacion(estado_conversacion, delta, mensaje)
+
+    # Inyectar filtros del usuario si se proporcionaron
+    if filtro_proveedor_ids:
+        request_estructurado.filtro_proveedor_ids = filtro_proveedor_ids
+    if filtro_categoria_ids:
+        request_estructurado.filtro_categoria_ids = filtro_categoria_ids
 
     print("\n" + "="*50)
     print("GEMINI EXTRAJO DEL TURNO:")

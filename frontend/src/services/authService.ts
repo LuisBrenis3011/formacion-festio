@@ -19,7 +19,7 @@ export const authService = {
   async login(datos: LoginDraft): Promise<TokenResponse> {
     return requestAuthJson<TokenResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify(datos),
+      body: JSON.stringify({ email: datos.email, password: datos.password }),
     });
   },
 

@@ -140,13 +140,14 @@ def confirmar_checkout_simulado(
     reserva_temp_id: str,
     datos: CheckoutClienteCreate,
     db: Session,
+    usuario_autenticado: Usuario | None = None,
 ) -> CheckoutReservaResponse:
     bloqueado = bloqueo_service.obtener_bloqueo(reserva_temp_id)
     if not bloqueado:
         raise HTTPException(status_code=408, detail="El bloqueo expiró o no existe")
 
     metodo_pago = _validar_metodo_pago(datos.metodo_pago)
-    cliente = _crear_o_validar_cliente(datos, db)
+    cliente = _obtener_cliente_checkout(datos, db, usuario_autenticado)
     evento_data = bloqueado["evento"]
     fecha_inicio = _parse_datetime(evento_data["fecha_evento_inicio"])
     fecha_fin = _parse_datetime(evento_data["fecha_evento_fin"])
@@ -591,6 +592,33 @@ def _parse_datetime(valor) -> datetime:
     if isinstance(valor, datetime):
         return valor
     return datetime.fromisoformat(str(valor))
+
+
+def _obtener_cliente_checkout(
+    datos: CheckoutClienteCreate,
+    db: Session,
+    usuario_autenticado: Usuario | None = None,
+) -> Cliente:
+    if not usuario_autenticado:
+        return _crear_o_validar_cliente(datos, db)
+
+    if usuario_autenticado.rol != RolUsuario.CLIENTE:
+        raise HTTPException(status_code=400, detail="La sesión autenticada no pertenece a un cliente")
+    if usuario_autenticado.estado == EstadoBasico.INACTIVO:
+        raise HTTPException(status_code=403, detail="Cuenta inactiva")
+
+    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario_autenticado.id).first()
+    if not cliente:
+        cliente = Cliente(
+            usuario_id=usuario_autenticado.id,
+            direccion=datos.direccion,
+        )
+        db.add(cliente)
+        db.flush()
+    elif datos.direccion and not cliente.direccion:
+        cliente.direccion = datos.direccion
+
+    return cliente
 
 
 def _crear_o_validar_cliente(datos: CheckoutClienteCreate, db: Session) -> Cliente:

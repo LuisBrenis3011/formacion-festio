@@ -92,12 +92,19 @@ def recomendar_evento(datos: RecomendacionRequest, db: Session) -> Recomendacion
     if datos.distrito:
         query = query.filter(Proveedor.distrito.ilike(f"%{datos.distrito}%"))
 
+    # ── Filtros opcionales del usuario ────────────────────────────────────
+    if datos.filtro_proveedor_ids:
+        query = query.filter(Proveedor.id.in_(datos.filtro_proveedor_ids))
+
     principales: List[ProveedorRecomendado] = []
     secundarios: List[ProveedorRecomendado] = []
     scores: Dict[int, int] = {}  # proveedor_id -> score (Regla 10)
 
     for prov in query.all():
         paq_activos = [p for p in prov.paquetes if p.estado == EstadoBasico.ACTIVO]
+        # ── Filtro de categoría sobre paquetes ────────────────────────────
+        if datos.filtro_categoria_ids:
+            paq_activos = [p for p in paq_activos if p.categoria_id in datos.filtro_categoria_ids]
         srv_activos = [s for s in prov.servicios_productos
                        if s.estado == EstadoBasico.ACTIVO and s.deleted_at is None]
         if not paq_activos:

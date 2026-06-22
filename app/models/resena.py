@@ -18,8 +18,9 @@ class Resena(Base):
     )
 
     id           = Column(Integer, primary_key=True)
-    reserva_id   = Column(Integer, ForeignKey("reserva.id"), nullable=False)
-    cliente_id   = Column(Integer, ForeignKey("cliente.id"), nullable=False)
+    reserva_id   = Column(Integer, ForeignKey("reserva.id"), nullable=True)   # nullable para reseñas públicas
+    cliente_id   = Column(Integer, ForeignKey("cliente.id"), nullable=True)   # nullable para reseñas públicas
+    usuario_id   = Column(Integer, ForeignKey("usuario.id"), nullable=True)   # para reseñas públicas (usuario logueado)
     proveedor_id = Column(Integer, ForeignKey("proveedor.id"), nullable=False)
     calificacion = Column(Integer, nullable=False)
     comentario   = Column(Text)
@@ -28,4 +29,5 @@ class Resena(Base):
     # ── Relaciones ────────────────────────────────────────────────────────────
     reserva   = relationship("Reserva",   back_populates="resenas")
     cliente   = relationship("Cliente",   back_populates="resenas")
+    usuario   = relationship("Usuario")
     proveedor = relationship("Proveedor", back_populates="resenas")

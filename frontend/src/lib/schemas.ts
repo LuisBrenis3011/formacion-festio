@@ -82,6 +82,8 @@ export const recomendacionRequestSchema = z.object({
   aforo_estimado: z.number().nullable().optional(),
   distrito: z.string().nullable().optional(),
   presupuesto_maximo: z.number().nullable().optional(),
+  filtro_proveedor_ids: z.array(z.number()).optional(),
+  filtro_categoria_ids: z.array(z.number()).optional(),
 });
 
 export const recomendacionResponseSchema = z.object({

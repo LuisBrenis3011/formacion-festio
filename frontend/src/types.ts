@@ -140,11 +140,18 @@ export type ChatMessage = {
   timestamp: Date;
 };
 
+export type ChatFilters = {
+  proveedor_ids: number[];
+  categoria_ids: number[];
+};
+
 /** Payload que va al backend — empata con ChatRequest de Pydantic */
 export type ChatPayload = {
   mensaje: string;
   historial: { role: string; content: string }[];
   estado_conversacion?: RecomendacionRequest | null;
+  filtro_proveedor_ids?: number[];
+  filtro_categoria_ids?: number[];
 };
 
 // ─── Recomendación ───────────────────────────────────────────────────────────
@@ -162,6 +169,8 @@ export type RecomendacionRequest = {
   aforo_estimado?: number | null;
   distrito?: string | null;
   presupuesto_maximo?: number | null;
+  filtro_proveedor_ids?: number[];
+  filtro_categoria_ids?: number[];
 };
 
 
@@ -275,6 +284,23 @@ export type CheckoutReservaResponse = {
   monto_adelanto: number;
   monto_pendiente: number;
   mensaje: string;
+};
+
+// ─── Reseñas ─────────────────────────────────────────────────────────────────
+
+export type ResenaPublicaCreate = {
+  proveedor_id: number;
+  calificacion: number;
+  comentario?: string | null;
+};
+
+export type ResenaPublicaOut = {
+  id: number;
+  proveedor_id: number;
+  calificacion: number;
+  comentario?: string | null;
+  fecha: string;
+  nombre_usuario: string;
 };
 
 // ─── UI State Types ──────────────────────────────────────────────────────────

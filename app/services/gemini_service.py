@@ -1,6 +1,7 @@
 import os
+import asyncio
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 from sqlalchemy.orm import Session
 
 from app.models.catalogo import Categoria, ServicioProducto, Tematica
@@ -13,6 +14,9 @@ if not api_key:
 
 # Inicializamos el cliente pasándole la llave directamente
 client = genai.Client(api_key=api_key)
+
+for model in client.models.list():
+    print(model.name)
 
 async def parsear_mensaje_cliente(
     mensaje: str,
@@ -84,11 +88,28 @@ async def parsear_mensaje_cliente(
     )
 
     # 5. Llamar al modelo de manera asíncrona
-    response = await client.aio.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=contents,
-        config=config
-    )
+    max_reintentos = 3
+    response = None
+    modelo_actual = "gemini-2.5-flash"
+    
+    for intento in range(max_reintentos):
+        try:
+            response = await client.aio.models.generate_content(
+                model=modelo_actual,
+                contents=contents,
+                config=config
+            )
+            break  # Si la llamada es exitosa, rompemos el bucle
+            
+        except errors.ServerError as e:
+            if e.code == 503 and intento < max_reintentos - 1:
+                tiempo_espera = 2 ** intento  
+                print(f"Servidor de {modelo_actual} saturado. Reintentando en {tiempo_espera}s...")
+                await asyncio.sleep(tiempo_espera)
+            else:
+                # Si falló las 3 veces o es un error distinto a 503, lanzamos la excepción
+                print(f"Error crítico de API tras {max_reintentos} intentos: {e}")
+                raise e
 
     # 6. La SDK parsea automáticamente el resultado al esquema Pydantic
     if hasattr(response, 'parsed') and response.parsed is not None:
