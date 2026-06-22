@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { CreditCard, Smartphone, Banknote } from "lucide-react";
 
 export type PaymentDetailsData = {
@@ -68,6 +67,8 @@ export function PaymentDetailsForm({ metodoPago, details, onChange }: PaymentDet
               inputMode="numeric"
               placeholder="1234 5678 9012 3456"
               maxLength={19}
+              pattern="\d{4} \d{4} \d{4} \d{4}"
+              title="Ingresa los 16 dígitos de la tarjeta"
               value={details.numeroTarjeta ?? ""}
               onChange={(e) => {
                 const raw = e.target.value.replace(/\D/g, "").slice(0, 16);
@@ -93,6 +94,8 @@ export function PaymentDetailsForm({ metodoPago, details, onChange }: PaymentDet
               type="text"
               placeholder="MM/AA"
               maxLength={5}
+              pattern="(0[1-9]|1[0-2])\/\d{2}"
+              title="Usa el formato MM/AA"
               value={details.fechaVencimiento ?? ""}
               onChange={(e) => {
                 let raw = e.target.value.replace(/\D/g, "").slice(0, 4);
@@ -109,6 +112,8 @@ export function PaymentDetailsForm({ metodoPago, details, onChange }: PaymentDet
               inputMode="numeric"
               placeholder="•••"
               maxLength={3}
+              pattern="\d{3}"
+              title="Ingresa los 3 dígitos del CVV"
               value={details.cvv ?? ""}
               onChange={(e) => update("cvv", e.target.value.replace(/\D/g, "").slice(0, 3))}
               required
@@ -134,6 +139,8 @@ export function PaymentDetailsForm({ metodoPago, details, onChange }: PaymentDet
               inputMode="numeric"
               placeholder="987 654 321"
               maxLength={11}
+              pattern="\d{3} \d{3} \d{3}"
+              title="Ingresa un celular de 9 dígitos"
               value={details.numeroCelular ?? ""}
               onChange={(e) => {
                 const raw = e.target.value.replace(/\D/g, "").slice(0, 9);
@@ -150,6 +157,8 @@ export function PaymentDetailsForm({ metodoPago, details, onChange }: PaymentDet
               inputMode="numeric"
               placeholder="123456"
               maxLength={6}
+              pattern="\d{6}"
+              title="Ingresa el código de aprobación de 6 dígitos"
               value={details.codigoAprobacion ?? ""}
               onChange={(e) => update("codigoAprobacion", e.target.value.replace(/\D/g, "").slice(0, 6))}
               required

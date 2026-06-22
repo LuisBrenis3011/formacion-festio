@@ -1,10 +1,11 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_optional_current_user
 from app.database import get_db
+from app.models.usuario import Usuario
 from app.schemas.reserva import (
     CheckoutClienteCreate,
     CheckoutReservaResponse,
@@ -62,12 +63,13 @@ def checkout_simulado(
     reserva_temp_id: str,
     datos: CheckoutClienteCreate,
     db: Session = Depends(get_db),
+    usuario: Optional[Usuario] = Depends(get_optional_current_user),
 ):
     """
     Flujo público: registra/reusa cliente, simula pago aprobado del 10%
     y convierte el bloqueo temporal en una reserva confirmada.
     """
-    return reserva_service.confirmar_checkout_simulado(reserva_temp_id, datos, db)
+    return reserva_service.confirmar_checkout_simulado(reserva_temp_id, datos, db, usuario)
 
 
 @router.post("/iniciar", status_code=200)

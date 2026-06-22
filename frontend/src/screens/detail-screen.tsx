@@ -1,19 +1,46 @@
-import { useMemo } from "react";
-import { ArrowLeft, CreditCard, Loader2, Minus, Plus } from "lucide-react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
+import { AlertTriangle, ArrowLeft, CreditCard, Loader2, Minus, Plus } from "lucide-react";
 import { PackageLine } from "../components/package-line";
 import { SummaryLine } from "../components/summary-line";
 import { addHours, formatDuration, formatTime, money } from "../lib/format";
 import type { ContinueToPaymentParams } from "../hooks/use-payment-flow";
 import type {
   EventDraft,
+  ItemRecomendado,
   ProveedorRecomendado,
   ServicioProducto,
 } from "../types";
 
+const UNAVAILABLE_OBSERVATION_KEYWORDS = ["no disponible", "sin stock", "agotado", "agotada"];
+
+function normalizeText(value: string) {
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function itemHasUnavailableObservation(item: ItemRecomendado, observations: string[]) {
+  const itemName = normalizeText(item.nombre);
+  return observations.some((observation) => {
+    const text = normalizeText(observation);
+    if (!text.includes(itemName)) return false;
+    return (
+      UNAVAILABLE_OBSERVATION_KEYWORDS.some((keyword) => text.includes(keyword)) ||
+      (text.includes("disponible") && text.includes("solicitado"))
+    );
+  });
+}
+
+function isIncludedItemUnavailable(item: ItemRecomendado, observations: string[]) {
+  return (
+    item.stock_maximo_simultaneo == null ||
+    item.stock_maximo_simultaneo < item.cantidad ||
+    itemHasUnavailableObservation(item, observations)
+  );
+}
+
 type DetailScreenProps = {
   provider: ProveedorRecomendado;
   eventDraft: EventDraft;
-  setEventDraft: React.Dispatch<React.SetStateAction<EventDraft>>;
+  setEventDraft: Dispatch<SetStateAction<EventDraft>>;
   extras: ServicioProducto[];
   extraQuantities: Record<number, number>;
   updateExtra: (service: ServicioProducto, direction: 1 | -1) => void;
@@ -66,8 +93,19 @@ export function DetailScreen({
       }, {}),
     [extras],
   );
+  const unavailableIncludedIds = useMemo(
+    () =>
+      new Set(
+        provider.paquete.incluye
+          .filter((item) => isIncludedItemUnavailable(item, provider.observaciones))
+          .map((item) => item.servicio_producto_id),
+      ),
+    [provider.paquete.incluye, provider.observaciones],
+  );
+  const hasUnavailableIncluded = unavailableIncludedIds.size > 0;
 
   function handleContinue() {
+    if (hasUnavailableIncluded) return;
     onContinue({
       provider,
       eventDraft,
@@ -98,9 +136,21 @@ export function DetailScreen({
             <h3>Incluye</h3>
             <div className="included-list">
               {provider.paquete.incluye.map((item) => (
-                <PackageLine key={item.servicio_producto_id} item={item} />
+                <PackageLine
+                  key={item.servicio_producto_id}
+                  item={item}
+                  isUnavailable={unavailableIncludedIds.has(item.servicio_producto_id)}
+                />
               ))}
             </div>
+            {hasUnavailableIncluded && (
+              <div className="inventory-warning">
+                <AlertTriangle size={18} />
+                <span>
+                  Algunos servicios incluidos no están disponibles. Puedes seleccionar alternativas en los Adicionales.
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="extras-block">
@@ -214,9 +264,14 @@ export function DetailScreen({
               <SummaryLine label="En el local 80%" value={balance} />
             </div>
 
-            <button className="primary-action" type="button" onClick={handleContinue} disabled={loadingPayment}>
+            <button
+              className="primary-action"
+              type="button"
+              onClick={handleContinue}
+              disabled={loadingPayment || hasUnavailableIncluded}
+            >
               {loadingPayment ? <Loader2 className="spin" size={18} /> : <CreditCard size={18} />}
-              Continuar al pago
+              {hasUnavailableIncluded ? "Paquete no disponible" : "Continuar al pago"}
             </button>
           </div>
         </aside>

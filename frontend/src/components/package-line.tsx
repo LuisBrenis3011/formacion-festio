@@ -3,10 +3,13 @@ import type { ItemRecomendado } from "../types";
 
 type PackageLineProps = {
   item: ItemRecomendado;
+  isUnavailable?: boolean;
 };
 
-export function PackageLine({ item }: PackageLineProps) {
-  const agotado = item.stock_maximo_simultaneo != null && item.stock_maximo_simultaneo <= 0;
+export function PackageLine({ item, isUnavailable }: PackageLineProps) {
+  const agotado =
+    isUnavailable ??
+    (item.stock_maximo_simultaneo == null || item.stock_maximo_simultaneo < item.cantidad);
 
   return (
     <div className={`included-row${agotado ? " included-row-agotado" : ""}`}>

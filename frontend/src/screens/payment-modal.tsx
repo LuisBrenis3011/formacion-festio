@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { CreditCard, Loader2, X, CheckCircle } from "lucide-react";
 import { PaymentMethodSelect } from "../components/payment-method-select";
 import { PaymentDetailsForm, type PaymentDetailsData } from "../components/payment-details-form";
@@ -12,12 +12,12 @@ type PaymentModalProps = {
   authTab: AuthTab;
   setAuthTab: (tab: AuthTab) => void;
   registerDraft: RegisterDraft;
-  setRegisterDraft: React.Dispatch<React.SetStateAction<RegisterDraft>>;
+  setRegisterDraft: Dispatch<SetStateAction<RegisterDraft>>;
   loginDraft: LoginDraft;
-  setLoginDraft: React.Dispatch<React.SetStateAction<LoginDraft>>;
+  setLoginDraft: Dispatch<SetStateAction<LoginDraft>>;
   loadingPayment: boolean;
   error: string | null;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>, metodoPago: string) => void;
   onClose: () => void;
 };
 
@@ -38,19 +38,15 @@ export function PaymentModal({
 }: PaymentModalProps) {
   const [metodoPago, setMetodoPago] = useState("TARJETA");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetailsData>({});
+  const selectedMetodoPago = isAuthenticated
+    ? metodoPago
+    : authTab === "login"
+      ? loginDraft.metodoPago
+      : registerDraft.metodoPago;
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Sync the payment method to the appropriate draft before submitting
-    if (!isAuthenticated) {
-      if (authTab === "login") {
-        setLoginDraft((prev) => ({ ...prev, metodoPago }));
-      } else {
-        setRegisterDraft((prev) => ({ ...prev, metodoPago }));
-      }
-    }
-    // Trigger parent onSubmit
-    onSubmit(e);
+    onSubmit(e, selectedMetodoPago);
   };
 
   return (
@@ -73,7 +69,7 @@ export function PaymentModal({
             <>
               <div className="auth-user-summary">
                 <div className="auth-user-avatar">
-                  {user.nombre.charAt(0).toUpperCase()}
+                  {(user.nombre.charAt(0) || "C").toUpperCase()}
                 </div>
                 <div className="auth-user-details">
                   <strong>{user.nombre} {user.apellido}</strong>
@@ -192,7 +188,7 @@ export function PaymentModal({
               />
 
               <PaymentDetailsForm
-                metodoPago={authTab === "login" ? loginDraft.metodoPago : registerDraft.metodoPago}
+                metodoPago={selectedMetodoPago}
                 details={paymentDetails}
                 onChange={setPaymentDetails}
               />
