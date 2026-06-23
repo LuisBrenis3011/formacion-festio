@@ -265,11 +265,11 @@ export type PreReservaResponse = {
 };
 
 export type CheckoutClienteCreate = {
-  nombre: string;
-  apellido: string;
-  email: string;
+  nombre?: string;
+  apellido?: string;
+  email?: string;
   telefono?: string;
-  password: string;
+  password?: string;
   direccion?: string;
   metodo_pago: string;
 };

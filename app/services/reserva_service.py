@@ -622,6 +622,11 @@ def _obtener_cliente_checkout(
 
 
 def _crear_o_validar_cliente(datos: CheckoutClienteCreate, db: Session) -> Cliente:
+    if not datos.email or not datos.password or not datos.nombre:
+        raise HTTPException(
+            status_code=400,
+            detail="Se requiere nombre, email y password para usuarios no autenticados",
+        )
     usuario = db.query(Usuario).filter(Usuario.email == datos.email).first()
     if usuario:
         if usuario.rol != RolUsuario.CLIENTE:

@@ -120,11 +120,11 @@ class PreReservaResponse(BaseModel):
 
 
 class CheckoutClienteCreate(BaseModel):
-    nombre: str
-    apellido: str
-    email: str
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    email: Optional[str] = None
     telefono: Optional[str] = None
-    password: str
+    password: Optional[str] = None
     direccion: Optional[str] = None
     metodo_pago: str = "TARJETA"
 
