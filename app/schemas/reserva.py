@@ -169,3 +169,33 @@ class DisponibilidadResponse(BaseModel):
     disponible: bool
     mensaje: str
     items_no_disponibles: Optional[List[str]] = None
+
+
+class MisReservasDetalleOut(BaseModel):
+    nombre: str
+    tipo: str  # "paquete" | "adicional"
+    cantidad: int
+    subtotal: float
+
+    class Config:
+        from_attributes = True
+
+
+class MisReservasItemOut(BaseModel):
+    reserva_id: int
+    estado: str
+    nombre_evento: str
+    tipo_evento: Optional[str] = None
+    fecha_evento_inicio: datetime
+    fecha_evento_fin: datetime
+    direccion: str
+    nombre_empresa: str
+    monto_total: float
+    monto_adelanto: float
+    monto_pendiente: float
+    fecha_creacion: datetime
+    detalles: List[MisReservasDetalleOut]
+
+    class Config:
+        from_attributes = True
+

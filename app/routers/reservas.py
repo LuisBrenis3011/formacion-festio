@@ -11,6 +11,7 @@ from app.schemas.reserva import (
     CheckoutReservaResponse,
     EventoCreate,
     EventoOut,
+    MisReservasItemOut,
     PreReservaCreate,
     PreReservaResponse,
     ReservaCreate,
@@ -102,6 +103,15 @@ def confirmar_reserva(
     return reserva_service.confirmar_reserva(reserva_temp_id, pago_id, db)
 
 
+@router.get("/mis-reservas", response_model=List[MisReservasItemOut])
+def mis_reservas(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+):
+    """Historial de reservas del cliente autenticado."""
+    return reserva_service.listar_mis_reservas(usuario, db)
+
+
 @router.get("/{reserva_id}", response_model=ReservaOut)
 def obtener_reserva(reserva_id: int, db: Session = Depends(get_db)):
     return reserva_service.obtener_reserva(reserva_id, db)
@@ -115,3 +125,4 @@ def cancelar_reserva(
 ):
     """Cancela una reserva confirmada (soft delete)."""
     return reserva_service.cancelar_reserva(reserva_id, db)
+

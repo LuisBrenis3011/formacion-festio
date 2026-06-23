@@ -9,6 +9,7 @@ import { ChatScreen } from "./screens/chat-screen";
 import { DetailScreen } from "./screens/detail-screen";
 import { SuccessScreen } from "./screens/success-screen";
 import { PaymentModal } from "./screens/payment-modal";
+import { ReservasScreen } from "./screens/reservas-screen";
 import type { Screen } from "./types";
 import type { ContinueToPaymentParams } from "./hooks/use-payment-flow";
 
@@ -46,7 +47,10 @@ export function ClienteApp() {
 
   return (
     <div className={`app-shell screen-${screen}`}>
-      <AppHeader onLogoClick={() => setScreen("chat")} />
+      <AppHeader
+        onLogoClick={() => setScreen("chat")}
+        onReservasClick={() => setScreen("reservas")}
+      />
 
       {screen === "chat" ? (
         <ChatScreen
@@ -89,6 +93,8 @@ export function ClienteApp() {
           eventDraft={booking.eventDraft}
           onBack={() => setScreen("chat")}
         />
+      ) : screen === "reservas" ? (
+        <ReservasScreen onBack={() => setScreen("chat")} />
       ) : null}
 
       {payment.paymentOpen && payment.preReserva && user && (

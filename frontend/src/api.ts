@@ -10,6 +10,7 @@ import type {
   ResenaPublicaCreate,
   ResenaPublicaOut,
   ServicioProducto,
+  MisReservasItem,
 } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -105,5 +106,14 @@ export function crearResena(datos: ResenaPublicaCreate) {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(datos),
+  });
+}
+
+export function fetchMisReservas() {
+  const token = localStorage.getItem("festio_token");
+  if (!token) throw new Error("No hay sesión activa");
+  return requestJson<MisReservasItem[]>("/api/reservas/mis-reservas", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

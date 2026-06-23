@@ -16,6 +16,8 @@ from app.schemas.reserva       import (
     CheckoutReservaResponse,
     DetalleReservaCreate,
     EventoCreate,
+    MisReservasDetalleOut,
+    MisReservasItemOut,
     PreReservaCreate,
     PreReservaResponse,
     ReservaCreate,
@@ -708,3 +710,68 @@ def _actualizar_ocupacion_global(
             fecha_hora_fin          = fecha_fin,
             total_personas_ocupadas = cantidad,
         ))
+
+
+def listar_mis_reservas(usuario: Usuario, db: Session) -> List[MisReservasItemOut]:
+    """Devuelve todas las reservas del cliente autenticado, con detalles del evento y proveedor."""
+    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario.id).first()
+    if not cliente:
+        return []
+
+    eventos = db.query(Evento).filter(Evento.cliente_id == cliente.id).all()
+    evento_ids = [e.id for e in eventos]
+    if not evento_ids:
+        return []
+
+    reservas = (
+        db.query(Reserva)
+        .filter(Reserva.evento_id.in_(evento_ids), Reserva.deleted_at.is_(None))
+        .order_by(Reserva.fecha_creacion.desc())
+        .all()
+    )
+
+    resultado: List[MisReservasItemOut] = []
+    for reserva in reservas:
+        evento = next((e for e in eventos if e.id == reserva.evento_id), None)
+        if not evento:
+            continue
+
+        proveedor = db.query(Proveedor).filter(Proveedor.id == reserva.proveedor_id).first()
+        nombre_empresa = proveedor.nombre_empresa if proveedor else "Proveedor"
+
+        detalles_out: List[MisReservasDetalleOut] = []
+        for det in reserva.detalles:
+            if det.deleted_at:
+                continue
+            if det.paquete_id:
+                paq = db.query(Paquete).filter(Paquete.id == det.paquete_id).first()
+                nombre = paq.nombre if paq else f"Paquete #{det.paquete_id}"
+                tipo = "paquete"
+            else:
+                sp = db.query(ServicioProducto).filter(ServicioProducto.id == det.servicio_producto_id).first()
+                nombre = sp.nombre if sp else f"Servicio #{det.servicio_producto_id}"
+                tipo = "adicional"
+            detalles_out.append(MisReservasDetalleOut(
+                nombre=nombre,
+                tipo=tipo,
+                cantidad=det.cantidad,
+                subtotal=float(det.subtotal),
+            ))
+
+        resultado.append(MisReservasItemOut(
+            reserva_id=reserva.id,
+            estado=reserva.estado.value if hasattr(reserva.estado, 'value') else str(reserva.estado),
+            nombre_evento=evento.nombre_evento,
+            tipo_evento=evento.tipo_evento,
+            fecha_evento_inicio=evento.fecha_evento_inicio,
+            fecha_evento_fin=evento.fecha_evento_fin,
+            direccion=evento.direccion,
+            nombre_empresa=nombre_empresa,
+            monto_total=float(reserva.monto_total),
+            monto_adelanto=float(reserva.monto_adelanto),
+            monto_pendiente=float(reserva.monto_pendiente),
+            fecha_creacion=reserva.fecha_creacion,
+            detalles=detalles_out,
+        ))
+
+    return resultado

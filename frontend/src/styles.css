@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════════════
    FESTIO — Premium Violet Design System
    ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -2308,3 +2308,60 @@ input[readonly] {
   font-size: 0.78rem;
   font-weight: 700;
 }
+
+/* ── 20. HISTORIAL DE RESERVAS ─────────────────────────────────────────────── */
+
+.reservas-screen {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.reservas-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.reservas-header-actions h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+}
+
+.reservas-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--line);
+  color: var(--muted);
+}
+
+.status-pendiente {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-confirmada {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.status-cancelada {
+  background: #fee2e2;
+  color: var(--coral);
+}
