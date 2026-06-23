@@ -265,11 +265,11 @@ export type PreReservaResponse = {
 };
 
 export type CheckoutClienteCreate = {
-  nombre: string;
-  apellido: string;
-  email: string;
+  nombre?: string;
+  apellido?: string;
+  email?: string;
   telefono?: string;
-  password: string;
+  password?: string;
   direccion?: string;
   metodo_pago: string;
 };
@@ -284,6 +284,31 @@ export type CheckoutReservaResponse = {
   monto_adelanto: number;
   monto_pendiente: number;
   mensaje: string;
+};
+
+// ─── Historial de Reservas ───────────────────────────────────────────────────
+
+export type MisReservasDetalle = {
+  nombre: string;
+  tipo: string;
+  cantidad: number;
+  subtotal: number;
+};
+
+export type MisReservasItem = {
+  reserva_id: number;
+  estado: string;
+  nombre_evento: string;
+  tipo_evento: string | null;
+  fecha_evento_inicio: string;
+  fecha_evento_fin: string;
+  direccion: string;
+  nombre_empresa: string;
+  monto_total: number;
+  monto_adelanto: number;
+  monto_pendiente: number;
+  fecha_creacion: string;
+  detalles: MisReservasDetalle[];
 };
 
 // ─── Reseñas ─────────────────────────────────────────────────────────────────
@@ -305,7 +330,7 @@ export type ResenaPublicaOut = {
 
 // ─── UI State Types ──────────────────────────────────────────────────────────
 
-export type Screen = "chat" | "detail" | "success";
+export type Screen = "chat" | "detail" | "success" | "reservas";
 
 export type AuthTab = "login" | "register";
 

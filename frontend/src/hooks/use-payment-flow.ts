@@ -3,21 +3,14 @@ import { checkoutSimulado, prebloquearReserva } from "../api";
 import {
   cleanNumber,
   inferEventType,
-  loginPayload,
   readError,
-  registerPayload,
 } from "../lib/format";
-import { LOGIN_INITIAL, REGISTER_INITIAL } from "../lib/constants";
 import type {
-  AuthTab,
   CheckoutReservaResponse,
   EventDraft,
-  LoginDraft,
   PreReservaResponse,
   ProveedorRecomendado,
-  RegisterDraft,
   ServicioProducto,
-  AuthUser,
 } from "../types";
 
 export type ContinueToPaymentParams = {
@@ -29,17 +22,13 @@ export type ContinueToPaymentParams = {
 };
 
 /**
- * Manages the full payment flow: pre-reserva, auth form drafts,
- * and the simulated checkout. Functions accept needed external data
- * as params to stay decoupled from the booking/extras hooks.
+ * Manages the full payment flow: pre-reserva and the simulated checkout.
+ * Auth is handled externally by AuthProvider/AuthModal before this flow starts.
  */
 export function usePaymentFlow({ onSuccess }: { onSuccess: () => void }) {
   const [preReserva, setPreReserva] = useState<PreReservaResponse | null>(null);
   const [confirmation, setConfirmation] = useState<CheckoutReservaResponse | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [authTab, setAuthTab] = useState<AuthTab>("register");
-  const [registerDraft, setRegisterDraft] = useState<RegisterDraft>(REGISTER_INITIAL);
-  const [loginDraft, setLoginDraft] = useState<LoginDraft>(LOGIN_INITIAL);
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,29 +76,14 @@ export function usePaymentFlow({ onSuccess }: { onSuccess: () => void }) {
     event: FormEvent<HTMLFormElement>,
     direccion: string,
     metodoPago: string,
-    isAuthenticated: boolean,
-    user: AuthUser | null,
   ) {
     event.preventDefault();
     if (!preReserva) return;
 
-    let payload;
-    if (isAuthenticated && user) {
-      payload = {
-        nombre: user.nombre,
-        apellido: user.apellido,
-        email: user.email,
-        password: "authenticated_session",
-        direccion,
-        metodo_pago: metodoPago,
-      };
-    } else {
-      payload =
-        authTab === "login"
-          ? loginPayload(loginDraft, direccion)
-          : registerPayload(registerDraft, direccion);
-      payload.metodo_pago = metodoPago;
-    }
+    const payload = {
+      direccion,
+      metodo_pago: metodoPago,
+    };
 
     setLoadingPayment(true);
     setError(null);
@@ -131,15 +105,10 @@ export function usePaymentFlow({ onSuccess }: { onSuccess: () => void }) {
     confirmation,
     paymentOpen,
     setPaymentOpen,
-    authTab,
-    setAuthTab,
-    registerDraft,
-    setRegisterDraft,
-    loginDraft,
-    setLoginDraft,
     loadingPayment,
     error,
     continueToPayment,
     submitPayment,
   };
 }
+

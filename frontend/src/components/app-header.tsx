@@ -4,10 +4,11 @@ import { useNavigate } from "react-router-dom";
 
 type AppHeaderProps = {
   onLogoClick: () => void;
+  onReservasClick?: () => void;
   subtitle?: string;
 };
 
-export function AppHeader({ onLogoClick, subtitle }: AppHeaderProps) {
+export function AppHeader({ onLogoClick, onReservasClick, subtitle }: AppHeaderProps) {
   const { isAuthenticated, user, logout, openAuthModal } = useAuth();
   const navigate = useNavigate();
 
@@ -42,6 +43,16 @@ export function AppHeader({ onLogoClick, subtitle }: AppHeaderProps) {
                 Mi Panel
               </button>
             ) : null}
+            {onReservasClick && user?.rol === "CLIENTE" && (
+              <button
+                id="header-go-reservas"
+                className="header-btn header-btn-outline"
+                type="button"
+                onClick={onReservasClick}
+              >
+                Mis Reservas
+              </button>
+            )}
             <span className="header-user-name">
               Hola, <strong>{user?.nombre}</strong>
             </span>
