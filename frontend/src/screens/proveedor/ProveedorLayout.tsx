@@ -1,15 +1,21 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
+import { LayoutDashboard, Box, Package, User, CalendarDays, ClipboardCheck, Wallet, LineChart, LogOut } from "lucide-react";
+
 export function ProveedorLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
 
   const navItems = [
-    { name: "Dashboard", path: "/proveedor/dashboard", icon: "📊" },
-    { name: "Inventario", path: "/proveedor/inventario", icon: "📦" },
-    { name: "Mis Paquetes", path: "/proveedor/paquetes", icon: "🎁" },
-    { name: "Mi Perfil", path: "/proveedor/perfil", icon: "⚙️" },
+    { name: "Dashboard", path: "/proveedor/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Operaciones", path: "/proveedor/operaciones", icon: <ClipboardCheck size={20} /> },
+    { name: "Calendario", path: "/proveedor/calendario", icon: <CalendarDays size={20} /> },
+    { name: "Inventario", path: "/proveedor/inventario", icon: <Box size={20} /> },
+    { name: "Paquetes", path: "/proveedor/paquetes", icon: <Package size={20} /> },
+    { name: "Finanzas", path: "/proveedor/finanzas", icon: <Wallet size={20} /> },
+    { name: "Métricas", path: "/proveedor/metricas", icon: <LineChart size={20} /> },
+    { name: "Mi Perfil", path: "/proveedor/perfil", icon: <User size={20} /> },
   ];
 
   return (
@@ -45,7 +51,7 @@ export function ProveedorLayout() {
             onClick={logout}
             className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-red-600 hover:bg-red-50 transition-colors"
           >
-            <span className="text-xl">🚪</span>
+            <LogOut size={20} />
             <span>Cerrar Sesión</span>
           </button>
         </div>
