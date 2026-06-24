@@ -15,9 +15,10 @@ from app.services import (  # noqa: F401
     pago_service,
     paquete_service,
     personal_service,
+    proveedor_inventario_service,
+    proveedor_paquete_service,
     proveedor_service,
     recomendacion_service,
     resena_service,
-    reserva_service,
     usuario_service,
 )

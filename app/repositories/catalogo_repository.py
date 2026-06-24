@@ -25,7 +25,12 @@ class DetallePaqueteRepository(BaseRepository[DetallePaquete, BaseModel, BaseMod
     def __init__(self, db: Session):
         super().__init__(DetallePaquete, db)
 
+class DetallePaqueteRepository(BaseRepository[DetallePaquete, BaseModel, BaseModel]):
+    def __init__(self, db: Session):
+        super().__init__(DetallePaquete, db)
+
 def get_categoria_repo(db: Session = Depends(get_db)) -> CategoriaRepository: return CategoriaRepository(db)
 def get_tematica_repo(db: Session = Depends(get_db)) -> TematicaRepository: return TematicaRepository(db)
 def get_servicio_producto_repo(db: Session = Depends(get_db)) -> ServicioProductoRepository: return ServicioProductoRepository(db)
 def get_paquete_repo(db: Session = Depends(get_db)) -> PaqueteRepository: return PaqueteRepository(db)
+def get_detalle_paquete_repo(db: Session = Depends(get_db)) -> DetallePaqueteRepository: return DetallePaqueteRepository(db)

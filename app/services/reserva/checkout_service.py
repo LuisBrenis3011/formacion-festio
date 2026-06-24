@@ -1,101 +1,63 @@
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
-from datetime import datetime
-from decimal import Decimal
-from typing import List
 import uuid
+from decimal import Decimal
+from datetime import datetime
+from fastapi import HTTPException
 
-from app.domain.reservas.models        import Evento, Reserva, DetalleReserva
-from app.domain.catalogo.models       import DetallePaquete, ServicioProducto, Paquete
+from app.domain.reservas.models import Evento, Reserva, DetalleReserva
+from app.domain.catalogo.models import Paquete, ServicioProducto
 from app.domain.disponibilidad.models import OcupacionServicioProducto, OcupacionGlobalProveedor
-from app.domain.common.enums          import EstadoBasico, EstadoPago, EstadoReserva, MetodoPago, RolUsuario, TipoPago
-from app.domain.pagos.models           import PagoTransaccion
-from app.domain.usuarios.models        import Cliente, Proveedor, Usuario
-from app.domain.reservas.schemas       import (
+from app.domain.common.enums import EstadoBasico, EstadoPago, EstadoReserva, MetodoPago, RolUsuario, TipoPago
+from app.domain.pagos.models import PagoTransaccion
+from app.domain.usuarios.models import Cliente, Proveedor, Usuario
+from app.domain.reservas.schemas import (
     CheckoutClienteCreate,
     CheckoutReservaResponse,
-    DetalleReservaCreate,
-    EventoCreate,
-    MisReservasDetalleOut,
-    MisReservasItemOut,
     PreReservaCreate,
     PreReservaResponse,
     ReservaCreate,
 )
-from app.core.security         import hash_password, verify_password
-from app.services              import disponibilidad_service, bloqueo_service
+from app.core.security import hash_password, verify_password
+from app.services import bloqueo_service, disponibilidad_service
+from app.services.reserva import calculo_service
 
+from app.repositories.usuario_repository import ProveedorRepository, ClienteRepository, UsuarioRepository
+from app.repositories.catalogo_repository import PaqueteRepository, ServicioProductoRepository, DetallePaqueteRepository
+from app.repositories.reserva_repository import EventoRepository, ReservaRepository, DetalleReservaRepository
+from app.repositories.pago_repository import PagoTransaccionRepository
+from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
 
-def crear_evento(datos: EventoCreate, db: Session) -> Evento:
-    evento = Evento(**datos.model_dump())
-    db.add(evento)
-    db.commit()
-    db.refresh(evento)
-    return evento
-
-
-def obtener_evento(evento_id: int, db: Session) -> Evento:
-    """Busca un evento por ID. Lanza 404 si no existe."""
-    evento = db.query(Evento).filter(Evento.id == evento_id).first()
-    if not evento:
-        raise HTTPException(status_code=404, detail="Evento no encontrado")
-    return evento
-
-
-def eventos_por_cliente(cliente_id: int, db: Session) -> List[Evento]:
-    """Historial de eventos de un cliente."""
-    return db.query(Evento).filter(Evento.cliente_id == cliente_id).all()
-
-
-def obtener_reserva(reserva_id: int, db: Session) -> Reserva:
-    """Busca una reserva activa por ID. Lanza 404 si no existe o fue eliminada."""
-    reserva = db.query(Reserva).filter(
-        Reserva.id == reserva_id,
-        Reserva.deleted_at == None
-    ).first()
-    if not reserva:
-        raise HTTPException(status_code=404, detail="Reserva no encontrada")
-    return reserva
-
-
-def cancelar_reserva(reserva_id: int, db: Session) -> dict:
-    """Cancela una reserva confirmada (soft delete)."""
-    reserva = db.query(Reserva).filter(Reserva.id == reserva_id).first()
-    if not reserva:
-        raise HTTPException(status_code=404, detail="Reserva no encontrada")
-    if reserva.estado == EstadoReserva.COMPLETADA:
-        raise HTTPException(
-            status_code=400, detail="No se puede cancelar una reserva completada"
-        )
-
-    reserva.estado     = EstadoReserva.CANCELADA
-    reserva.deleted_at = datetime.utcnow()
-    db.commit()
-    return {"mensaje": "Reserva cancelada correctamente"}
-
-
-def prebloquear_reserva(datos: PreReservaCreate, db: Session) -> PreReservaResponse:
+def prebloquear_reserva(
+    datos: PreReservaCreate,
+    proveedor_repo: ProveedorRepository,
+    paquete_repo: PaqueteRepository,
+    servicio_repo: ServicioProductoRepository,
+    detalle_paquete_repo: DetallePaqueteRepository,
+    ocupacion_sp_repo: OcupacionServicioProductoRepository,
+    ocupacion_global_repo: OcupacionGlobalProveedorRepository
+) -> PreReservaResponse:
     if datos.fecha_evento_fin <= datos.fecha_evento_inicio:
         raise HTTPException(status_code=400, detail="La hora de fin debe ser posterior al inicio")
 
-    proveedor = db.query(Proveedor).filter(Proveedor.id == datos.proveedor_id).first()
+    proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
-    paquete = db.query(Paquete).filter(
+    paquete = paquete_repo.db.query(Paquete).filter(
         Paquete.id == datos.paquete_id,
         Paquete.proveedor_id == datos.proveedor_id,
     ).first()
     if not paquete or paquete.estado != EstadoBasico.ACTIVO:
         raise HTTPException(status_code=404, detail="Paquete activo no encontrado para el proveedor")
 
-    detalles_reserva, items_ocupacion, monto_total = _construir_carrito(datos, paquete, db)
+    detalles_reserva, items_ocupacion, monto_total = calculo_service.construir_carrito(datos, paquete, servicio_repo, detalle_paquete_repo)
     observaciones = _validar_disponibilidad_items(
         proveedor=proveedor,
         items_ocupacion=items_ocupacion,
         inicio=datos.fecha_evento_inicio,
         fin=datos.fecha_evento_fin,
-        db=db,
+        servicio_repo=servicio_repo,
+        ocupacion_sp_repo=ocupacion_sp_repo,
+        ocupacion_global_repo=ocupacion_global_repo,
     )
     if observaciones:
         raise HTTPException(status_code=409, detail={"mensaje": "Inventario no disponible", "items": observaciones})
@@ -119,7 +81,7 @@ def prebloquear_reserva(datos: PreReservaCreate, db: Session) -> PreReservaRespo
         },
         "detalles_reserva": detalles_reserva,
         "items_ocupacion": items_ocupacion,
-        "personas_requeridas": _personas_requeridas(items_ocupacion, db),
+        "personas_requeridas": calculo_service.personas_requeridas(items_ocupacion, servicio_repo),
         "monto_total": monto_total,
         "monto_adelanto": monto_adelanto,
         "monto_pendiente": monto_pendiente,
@@ -137,24 +99,32 @@ def prebloquear_reserva(datos: PreReservaCreate, db: Session) -> PreReservaRespo
         mensaje="Inventario bloqueado por 10 minutos. Completa el pago simulado del adelanto.",
     )
 
-
 def confirmar_checkout_simulado(
     reserva_temp_id: str,
     datos: CheckoutClienteCreate,
-    db: Session,
-    usuario_autenticado: Usuario | None = None,
+    usuario_autenticado: Usuario | None,
+    cliente_repo: ClienteRepository,
+    usuario_repo: UsuarioRepository,
+    proveedor_repo: ProveedorRepository,
+    servicio_repo: ServicioProductoRepository,
+    ocupacion_sp_repo: OcupacionServicioProductoRepository,
+    ocupacion_global_repo: OcupacionGlobalProveedorRepository,
+    evento_repo: EventoRepository,
+    reserva_repo: ReservaRepository,
+    detalle_reserva_repo: DetalleReservaRepository,
+    pago_repo: PagoTransaccionRepository
 ) -> CheckoutReservaResponse:
     bloqueado = bloqueo_service.obtener_bloqueo(reserva_temp_id)
     if not bloqueado:
         raise HTTPException(status_code=408, detail="El bloqueo expiró o no existe")
 
     metodo_pago = _validar_metodo_pago(datos.metodo_pago)
-    cliente = _obtener_cliente_checkout(datos, db, usuario_autenticado)
+    cliente = _obtener_cliente_checkout(datos, cliente_repo, usuario_repo, usuario_autenticado)
     evento_data = bloqueado["evento"]
-    fecha_inicio = _parse_datetime(evento_data["fecha_evento_inicio"])
-    fecha_fin = _parse_datetime(evento_data["fecha_evento_fin"])
+    fecha_inicio = calculo_service.parse_datetime(evento_data["fecha_evento_inicio"])
+    fecha_fin = calculo_service.parse_datetime(evento_data["fecha_evento_fin"])
 
-    proveedor = db.query(Proveedor).filter(Proveedor.id == bloqueado["proveedor_id"]).first()
+    proveedor = proveedor_repo.get(bloqueado["proveedor_id"])
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
@@ -163,7 +133,9 @@ def confirmar_checkout_simulado(
         items_ocupacion=bloqueado["items_ocupacion"],
         inicio=fecha_inicio,
         fin=fecha_fin,
-        db=db,
+        servicio_repo=servicio_repo,
+        ocupacion_sp_repo=ocupacion_sp_repo,
+        ocupacion_global_repo=ocupacion_global_repo,
         reserva_temp_id_actual=reserva_temp_id,
     )
     if observaciones:
@@ -178,8 +150,8 @@ def confirmar_checkout_simulado(
         direccion=evento_data["direccion"],
         aforo_estimado=evento_data.get("aforo_estimado"),
     )
-    db.add(evento)
-    db.flush()
+    evento_repo.db.add(evento)
+    evento_repo.db.flush()
 
     reserva = Reserva(
         evento_id=evento.id,
@@ -190,11 +162,11 @@ def confirmar_checkout_simulado(
         monto_adelanto=Decimal(str(bloqueado["monto_adelanto"])),
         monto_pendiente=Decimal(str(bloqueado["monto_pendiente"])),
     )
-    db.add(reserva)
-    db.flush()
+    reserva_repo.db.add(reserva)
+    reserva_repo.db.flush()
 
     for detalle_data in bloqueado["detalles_reserva"]:
-        db.add(DetalleReserva(
+        detalle_reserva_repo.db.add(DetalleReserva(
             reserva_id=reserva.id,
             paquete_id=detalle_data.get("paquete_id"),
             servicio_producto_id=detalle_data.get("servicio_producto_id"),
@@ -212,7 +184,7 @@ def confirmar_checkout_simulado(
             cantidad=item["cantidad"],
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            db=db,
+            ocupacion_sp_repo=ocupacion_sp_repo,
         )
 
     personas = int(bloqueado.get("personas_requeridas") or 0)
@@ -222,7 +194,7 @@ def confirmar_checkout_simulado(
             cantidad=personas,
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            db=db,
+            ocupacion_global_repo=ocupacion_global_repo,
         )
 
     pago = PagoTransaccion(
@@ -234,10 +206,10 @@ def confirmar_checkout_simulado(
         codigo_transaccion=f"SIM-{uuid.uuid4().hex[:12].upper()}",
         fecha_pago=datetime.utcnow(),
     )
-    db.add(pago)
-    db.commit()
-    db.refresh(reserva)
-    db.refresh(pago)
+    pago_repo.db.add(pago)
+    pago_repo.db.commit()
+    reserva_repo.db.refresh(reserva)
+    pago_repo.db.refresh(pago)
     bloqueo_service.liberar_bloqueo(reserva_temp_id)
 
     return CheckoutReservaResponse(
@@ -252,24 +224,22 @@ def confirmar_checkout_simulado(
         mensaje="Reserva confirmada con pago simulado del adelanto.",
     )
 
-
-def iniciar_reserva(datos: ReservaCreate, db: Session) -> dict:
-    """
-    Paso 1: Valida disponibilidad y crea el bloqueo en Redis.
-    No escribe nada en la BD todavía.
-    Retorna un ID temporal para rastrear el bloqueo.
-    """
-    evento = db.query(Evento).filter(Evento.id == datos.evento_id).first()
+def iniciar_reserva(
+    datos: ReservaCreate,
+    evento_repo: EventoRepository,
+    paquete_repo: PaqueteRepository,
+    servicio_repo: ServicioProductoRepository
+) -> dict:
+    evento = evento_repo.get(datos.evento_id)
     if not evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
 
-    # Verificar disponibilidad en tiempo real
     resultado = disponibilidad_service.consultar_disponibilidad(
         proveedor_id = datos.proveedor_id,
         fecha_inicio = evento.fecha_evento_inicio,
         fecha_fin    = evento.fecha_evento_fin,
         detalles     = datos.detalles,
-        db           = db,
+        db           = evento_repo.db,
     )
 
     if not resultado.disponible:
@@ -278,13 +248,10 @@ def iniciar_reserva(datos: ReservaCreate, db: Session) -> dict:
             detail={"mensaje": resultado.mensaje, "items": resultado.items_no_disponibles}
         )
 
-    # Calcular montos
-    monto_total = _calcular_monto_total(datos.detalles, db)
+    monto_total = calculo_service.calcular_monto_total(datos.detalles, paquete_repo, servicio_repo)
     monto_adelanto  = round(monto_total * 0.10, 2)
     monto_pendiente = round(monto_total * 0.90, 2)
 
-    # Crear bloqueo temporal en Redis
-    import uuid
     reserva_temp_id = str(uuid.uuid4())
 
     bloqueo_service.crear_bloqueo(reserva_temp_id, {
@@ -305,12 +272,16 @@ def iniciar_reserva(datos: ReservaCreate, db: Session) -> dict:
         "mensaje"         : "Inventario bloqueado. Tienes 10 minutos para completar el adelanto.",
     }
 
-
-def confirmar_reserva(reserva_temp_id: str, pago_id: int, db: Session) -> Reserva:
-    """
-    Paso 2: Llamado después de validar el pago exitoso.
-    Convierte el bloqueo temporal en reserva definitiva en la BD.
-    """
+def confirmar_reserva(
+    reserva_temp_id: str,
+    pago_id: int,
+    evento_repo: EventoRepository,
+    reserva_repo: ReservaRepository,
+    detalle_reserva_repo: DetalleReservaRepository,
+    servicio_repo: ServicioProductoRepository,
+    ocupacion_sp_repo: OcupacionServicioProductoRepository,
+    ocupacion_global_repo: OcupacionGlobalProveedorRepository
+) -> Reserva:
     datos_bloqueo = bloqueo_service.obtener_bloqueo(reserva_temp_id)
     if not datos_bloqueo:
         raise HTTPException(
@@ -318,9 +289,8 @@ def confirmar_reserva(reserva_temp_id: str, pago_id: int, db: Session) -> Reserv
             detail="El tiempo de bloqueo expiró. Por favor reinicia la reserva."
         )
 
-    evento = db.query(Evento).filter(Evento.id == datos_bloqueo["evento_id"]).first()
+    evento = evento_repo.get(datos_bloqueo["evento_id"])
 
-    # Crear la reserva en BD
     reserva = Reserva(
         evento_id       = datos_bloqueo["evento_id"],
         proveedor_id    = datos_bloqueo["proveedor_id"],
@@ -329,15 +299,12 @@ def confirmar_reserva(reserva_temp_id: str, pago_id: int, db: Session) -> Reserv
         monto_adelanto  = datos_bloqueo["monto_adelanto"],
         monto_pendiente = datos_bloqueo["monto_pendiente"],
     )
-    db.add(reserva)
-    db.flush()
+    reserva_repo.db.add(reserva)
+    reserva_repo.db.flush()
 
-    # Crear detalles de la reserva
     for d in datos_bloqueo["detalles"]:
         if d.get("servicio_producto_id"):
-            servicio = db.query(ServicioProducto).filter(
-                ServicioProducto.id == d["servicio_producto_id"]
-            ).first()
+            servicio = servicio_repo.get(d["servicio_producto_id"])
             precio   = float(servicio.precio_unitario)
             subtotal = precio * d["cantidad"]
 
@@ -351,133 +318,48 @@ def confirmar_reserva(reserva_temp_id: str, pago_id: int, db: Session) -> Reserv
                 fecha_hora_inicio_servicio = evento.fecha_evento_inicio,
                 fecha_hora_fin_servicio    = evento.fecha_evento_fin,
             )
-            db.add(detalle)
+            detalle_reserva_repo.db.add(detalle)
 
-            # Actualizar ocupación del ítem
             _actualizar_ocupacion_item(
                 servicio_producto_id = d["servicio_producto_id"],
                 cantidad             = d["cantidad"],
                 fecha_inicio         = evento.fecha_evento_inicio,
                 fecha_fin            = evento.fecha_evento_fin,
-                db                   = db,
+                ocupacion_sp_repo    = ocupacion_sp_repo,
             )
 
-            # Actualizar ocupación global si requiere persona
             if servicio.requiere_persona:
                 _actualizar_ocupacion_global(
                     proveedor_id = datos_bloqueo["proveedor_id"],
                     cantidad     = d["cantidad"],
                     fecha_inicio = evento.fecha_evento_inicio,
                     fecha_fin    = evento.fecha_evento_fin,
-                    db           = db,
+                    ocupacion_global_repo = ocupacion_global_repo,
                 )
 
-    db.commit()
-    db.refresh(reserva)
-
-    # Liberar el bloqueo en Redis
+    reserva_repo.db.commit()
+    reserva_repo.db.refresh(reserva)
     bloqueo_service.liberar_bloqueo(reserva_temp_id)
 
     return reserva
 
-
-def _calcular_monto_total(detalles, db: Session) -> float:
-    total = 0.0
-    for d in detalles:
-        if d.servicio_producto_id:
-            servicio = db.query(ServicioProducto).filter(
-                ServicioProducto.id == d.servicio_producto_id
-            ).first()
-            if servicio:
-                horas    = d.horas_contratadas or servicio.duracion_base_horas or 1
-                total   += float(servicio.precio_unitario) * d.cantidad * horas
-        elif d.paquete_id:
-            paquete = db.query(Paquete).filter(Paquete.id == d.paquete_id).first()
-            if paquete:
-                total += float(paquete.precio_base)
-    return round(total, 2)
-
-
-def _construir_carrito(datos: PreReservaCreate, paquete: Paquete, db: Session):
-    detalles_reserva = [{
-        "paquete_id": paquete.id,
-        "servicio_producto_id": None,
-        "nombre": paquete.nombre,
-        "tipo": "PAQUETE",
-        "cantidad": 1,
-        "horas_contratadas": None,
-        "precio_unitario": float(paquete.precio_base or 0),
-        "subtotal": float(paquete.precio_base or 0),
-    }]
-    items_ocupacion = []
-
-    detalles_paquete = db.query(DetallePaquete).filter(
-        DetallePaquete.paquete_id == paquete.id
-    ).all()
-    for detalle in detalles_paquete:
-        if not detalle.servicio_producto_id:
-            continue
-        items_ocupacion.append({
-            "servicio_producto_id": detalle.servicio_producto_id,
-            "cantidad": int(detalle.cantidad_incluida or 1),
-        })
-
-    total = float(paquete.precio_base or 0)
-    for adicional in datos.adicionales:
-        servicio = db.query(ServicioProducto).filter(
-            ServicioProducto.id == adicional.servicio_producto_id,
-            ServicioProducto.proveedor_id == datos.proveedor_id,
-            ServicioProducto.deleted_at == None,
-        ).first()
-        if not servicio or servicio.estado != EstadoBasico.ACTIVO:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Servicio adicional {adicional.servicio_producto_id} no disponible para el proveedor",
-            )
-
-        horas = adicional.horas_contratadas
-        if horas is None and servicio.duracion_base_horas is not None:
-            horas = float(servicio.duracion_base_horas)
-        subtotal = _subtotal_servicio(servicio, adicional.cantidad, horas)
-        total += subtotal
-        detalles_reserva.append({
-            "paquete_id": None,
-            "servicio_producto_id": servicio.id,
-            "nombre": servicio.nombre,
-            "tipo": "ADICIONAL",
-            "cantidad": adicional.cantidad,
-            "horas_contratadas": horas,
-            "precio_unitario": float(servicio.precio_unitario or 0),
-            "subtotal": subtotal,
-        })
-        items_ocupacion.append({
-            "servicio_producto_id": servicio.id,
-            "cantidad": adicional.cantidad,
-        })
-
-    return detalles_reserva, items_ocupacion, round(total, 2)
-
-
-def _subtotal_servicio(servicio: ServicioProducto, cantidad: int, horas: float | None) -> float:
-    precio = float(servicio.precio_unitario or 0)
-    if horas and (servicio.requiere_persona or "DJ" in (servicio.nombre or "").upper()):
-        return round(precio * cantidad * horas, 2)
-    return round(precio * cantidad, 2)
-
+# --- Helpers locales ---
 
 def _validar_disponibilidad_items(
     proveedor: Proveedor,
     items_ocupacion: list[dict],
     inicio: datetime,
     fin: datetime,
-    db: Session,
+    servicio_repo: ServicioProductoRepository,
+    ocupacion_sp_repo: OcupacionServicioProductoRepository,
+    ocupacion_global_repo: OcupacionGlobalProveedorRepository,
     reserva_temp_id_actual: str | None = None,
 ) -> list[str]:
     observaciones = []
-    cantidades = _agrupar_items(items_ocupacion)
+    cantidades = calculo_service.agrupar_items(items_ocupacion)
 
     for servicio_id, cantidad in cantidades.items():
-        servicio = db.query(ServicioProducto).filter(
+        servicio = servicio_repo.db.query(ServicioProducto).filter(
             ServicioProducto.id == servicio_id,
             ServicioProducto.proveedor_id == proveedor.id,
         ).first()
@@ -485,7 +367,7 @@ def _validar_disponibilidad_items(
             observaciones.append(f"Servicio {servicio_id} no pertenece al proveedor.")
             continue
 
-        ocupacion_db = db.query(OcupacionServicioProducto).filter(
+        ocupacion_db = ocupacion_sp_repo.db.query(OcupacionServicioProducto).filter(
             OcupacionServicioProducto.servicio_producto_id == servicio_id,
             OcupacionServicioProducto.fecha_hora_inicio < fin,
             OcupacionServicioProducto.fecha_hora_fin > inicio,
@@ -503,9 +385,9 @@ def _validar_disponibilidad_items(
                 f"{servicio.nombre}: disponible {disponible}, solicitado {cantidad}."
             )
 
-    requeridas = _personas_requeridas(items_ocupacion, db)
+    requeridas = calculo_service.personas_requeridas(items_ocupacion, servicio_repo)
     if requeridas:
-        ocupacion_global = db.query(OcupacionGlobalProveedor).filter(
+        ocupacion_global = ocupacion_global_repo.db.query(OcupacionGlobalProveedor).filter(
             OcupacionGlobalProveedor.proveedor_id == proveedor.id,
             OcupacionGlobalProveedor.fecha_hora_inicio < fin,
             OcupacionGlobalProveedor.fecha_hora_fin > inicio,
@@ -525,15 +407,6 @@ def _validar_disponibilidad_items(
 
     return observaciones
 
-
-def _agrupar_items(items: list[dict]) -> dict[int, int]:
-    agrupados = {}
-    for item in items:
-        servicio_id = int(item["servicio_producto_id"])
-        agrupados[servicio_id] = agrupados.get(servicio_id, 0) + int(item.get("cantidad") or 0)
-    return agrupados
-
-
 def _cantidad_bloqueada_temporal(
     servicio_id: int,
     inicio: datetime,
@@ -545,13 +418,12 @@ def _cantidad_bloqueada_temporal(
         if _es_bloqueo_actual(bloqueo, reserva_temp_id_actual):
             continue
         evento = bloqueo.get("evento", {})
-        if not _se_solapan(inicio, fin, evento.get("fecha_evento_inicio"), evento.get("fecha_evento_fin")):
+        if not calculo_service.se_solapan(inicio, fin, evento.get("fecha_evento_inicio"), evento.get("fecha_evento_fin")):
             continue
         for item in bloqueo.get("items_ocupacion", []):
             if int(item.get("servicio_producto_id")) == servicio_id:
                 total += int(item.get("cantidad") or 0)
     return total
-
 
 def _personas_bloqueadas_temporal(
     proveedor_id: int,
@@ -566,70 +438,47 @@ def _personas_bloqueadas_temporal(
         if int(bloqueo.get("proveedor_id") or 0) != proveedor_id:
             continue
         evento = bloqueo.get("evento", {})
-        if _se_solapan(inicio, fin, evento.get("fecha_evento_inicio"), evento.get("fecha_evento_fin")):
+        if calculo_service.se_solapan(inicio, fin, evento.get("fecha_evento_inicio"), evento.get("fecha_evento_fin")):
             total += int(bloqueo.get("personas_requeridas") or 0)
     return total
-
 
 def _es_bloqueo_actual(bloqueo: dict, reserva_temp_id_actual: str | None) -> bool:
     return bool(reserva_temp_id_actual and bloqueo.get("reserva_temp_id") == reserva_temp_id_actual)
 
-
-def _personas_requeridas(items_ocupacion: list[dict], db: Session) -> int:
-    total = 0
-    for servicio_id, cantidad in _agrupar_items(items_ocupacion).items():
-        servicio = db.query(ServicioProducto).filter(ServicioProducto.id == servicio_id).first()
-        if servicio and servicio.requiere_persona:
-            total += cantidad
-    return total
-
-
-def _se_solapan(inicio: datetime, fin: datetime, otro_inicio, otro_fin) -> bool:
-    if not otro_inicio or not otro_fin:
-        return False
-    return _parse_datetime(otro_inicio) < fin and _parse_datetime(otro_fin) > inicio
-
-
-def _parse_datetime(valor) -> datetime:
-    if isinstance(valor, datetime):
-        return valor
-    return datetime.fromisoformat(str(valor))
-
-
 def _obtener_cliente_checkout(
     datos: CheckoutClienteCreate,
-    db: Session,
+    cliente_repo: ClienteRepository,
+    usuario_repo: UsuarioRepository,
     usuario_autenticado: Usuario | None = None,
 ) -> Cliente:
     if not usuario_autenticado:
-        return _crear_o_validar_cliente(datos, db)
+        return _crear_o_validar_cliente(datos, cliente_repo, usuario_repo)
 
     if usuario_autenticado.rol != RolUsuario.CLIENTE:
         raise HTTPException(status_code=400, detail="La sesión autenticada no pertenece a un cliente")
     if usuario_autenticado.estado == EstadoBasico.INACTIVO:
         raise HTTPException(status_code=403, detail="Cuenta inactiva")
 
-    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario_autenticado.id).first()
+    cliente = cliente_repo.db.query(Cliente).filter(Cliente.usuario_id == usuario_autenticado.id).first()
     if not cliente:
         cliente = Cliente(
             usuario_id=usuario_autenticado.id,
             direccion=datos.direccion,
         )
-        db.add(cliente)
-        db.flush()
+        cliente_repo.db.add(cliente)
+        cliente_repo.db.flush()
     elif datos.direccion and not cliente.direccion:
         cliente.direccion = datos.direccion
 
     return cliente
 
-
-def _crear_o_validar_cliente(datos: CheckoutClienteCreate, db: Session) -> Cliente:
+def _crear_o_validar_cliente(datos: CheckoutClienteCreate, cliente_repo: ClienteRepository, usuario_repo: UsuarioRepository) -> Cliente:
     if not datos.email or not datos.password or not datos.nombre:
         raise HTTPException(
             status_code=400,
             detail="Se requiere nombre, email y password para usuarios no autenticados",
         )
-    usuario = db.query(Usuario).filter(Usuario.email == datos.email).first()
+    usuario = usuario_repo.db.query(Usuario).filter(Usuario.email == datos.email).first()
     if usuario:
         if usuario.rol != RolUsuario.CLIENTE:
             raise HTTPException(status_code=400, detail="El email pertenece a un usuario que no es cliente")
@@ -645,22 +494,21 @@ def _crear_o_validar_cliente(datos: CheckoutClienteCreate, db: Session) -> Clien
             rol=RolUsuario.CLIENTE,
             estado=EstadoBasico.ACTIVO,
         )
-        db.add(usuario)
-        db.flush()
+        usuario_repo.db.add(usuario)
+        usuario_repo.db.flush()
 
-    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario.id).first()
+    cliente = cliente_repo.db.query(Cliente).filter(Cliente.usuario_id == usuario.id).first()
     if not cliente:
         cliente = Cliente(
             usuario_id=usuario.id,
             direccion=datos.direccion,
         )
-        db.add(cliente)
-        db.flush()
+        cliente_repo.db.add(cliente)
+        cliente_repo.db.flush()
     elif datos.direccion and not cliente.direccion:
         cliente.direccion = datos.direccion
 
     return cliente
-
 
 def _validar_metodo_pago(valor: str) -> MetodoPago:
     try:
@@ -669,12 +517,11 @@ def _validar_metodo_pago(valor: str) -> MetodoPago:
         validos = ", ".join(m.value for m in MetodoPago)
         raise HTTPException(status_code=400, detail=f"Método de pago inválido. Usa: {validos}")
 
-
 def _actualizar_ocupacion_item(
     servicio_producto_id: int, cantidad: int,
-    fecha_inicio: datetime, fecha_fin: datetime, db: Session
+    fecha_inicio: datetime, fecha_fin: datetime, ocupacion_sp_repo: OcupacionServicioProductoRepository
 ):
-    ocupacion = db.query(OcupacionServicioProducto).filter(
+    ocupacion = ocupacion_sp_repo.db.query(OcupacionServicioProducto).filter(
         OcupacionServicioProducto.servicio_producto_id == servicio_producto_id,
         OcupacionServicioProducto.fecha_hora_inicio    == fecha_inicio,
         OcupacionServicioProducto.fecha_hora_fin       == fecha_fin,
@@ -683,19 +530,18 @@ def _actualizar_ocupacion_item(
     if ocupacion:
         ocupacion.cantidad_ocupada += cantidad
     else:
-        db.add(OcupacionServicioProducto(
+        ocupacion_sp_repo.db.add(OcupacionServicioProducto(
             servicio_producto_id = servicio_producto_id,
             fecha_hora_inicio    = fecha_inicio,
             fecha_hora_fin       = fecha_fin,
             cantidad_ocupada     = cantidad,
         ))
 
-
 def _actualizar_ocupacion_global(
     proveedor_id: int, cantidad: int,
-    fecha_inicio: datetime, fecha_fin: datetime, db: Session
+    fecha_inicio: datetime, fecha_fin: datetime, ocupacion_global_repo: OcupacionGlobalProveedorRepository
 ):
-    ocupacion = db.query(OcupacionGlobalProveedor).filter(
+    ocupacion = ocupacion_global_repo.db.query(OcupacionGlobalProveedor).filter(
         OcupacionGlobalProveedor.proveedor_id      == proveedor_id,
         OcupacionGlobalProveedor.fecha_hora_inicio == fecha_inicio,
         OcupacionGlobalProveedor.fecha_hora_fin    == fecha_fin,
@@ -704,74 +550,9 @@ def _actualizar_ocupacion_global(
     if ocupacion:
         ocupacion.total_personas_ocupadas += cantidad
     else:
-        db.add(OcupacionGlobalProveedor(
+        ocupacion_global_repo.db.add(OcupacionGlobalProveedor(
             proveedor_id            = proveedor_id,
             fecha_hora_inicio       = fecha_inicio,
             fecha_hora_fin          = fecha_fin,
             total_personas_ocupadas = cantidad,
         ))
-
-
-def listar_mis_reservas(usuario: Usuario, db: Session) -> List[MisReservasItemOut]:
-    """Devuelve todas las reservas del cliente autenticado, con detalles del evento y proveedor."""
-    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario.id).first()
-    if not cliente:
-        return []
-
-    eventos = db.query(Evento).filter(Evento.cliente_id == cliente.id).all()
-    evento_ids = [e.id for e in eventos]
-    if not evento_ids:
-        return []
-
-    reservas = (
-        db.query(Reserva)
-        .filter(Reserva.evento_id.in_(evento_ids), Reserva.deleted_at.is_(None))
-        .order_by(Reserva.fecha_creacion.desc())
-        .all()
-    )
-
-    resultado: List[MisReservasItemOut] = []
-    for reserva in reservas:
-        evento = next((e for e in eventos if e.id == reserva.evento_id), None)
-        if not evento:
-            continue
-
-        proveedor = db.query(Proveedor).filter(Proveedor.id == reserva.proveedor_id).first()
-        nombre_empresa = proveedor.nombre_empresa if proveedor else "Proveedor"
-
-        detalles_out: List[MisReservasDetalleOut] = []
-        for det in reserva.detalles:
-            if det.deleted_at:
-                continue
-            if det.paquete_id:
-                paq = db.query(Paquete).filter(Paquete.id == det.paquete_id).first()
-                nombre = paq.nombre if paq else f"Paquete #{det.paquete_id}"
-                tipo = "paquete"
-            else:
-                sp = db.query(ServicioProducto).filter(ServicioProducto.id == det.servicio_producto_id).first()
-                nombre = sp.nombre if sp else f"Servicio #{det.servicio_producto_id}"
-                tipo = "adicional"
-            detalles_out.append(MisReservasDetalleOut(
-                nombre=nombre,
-                tipo=tipo,
-                cantidad=det.cantidad,
-                subtotal=float(det.subtotal),
-            ))
-
-        resultado.append(MisReservasItemOut(
-            reserva_id=reserva.id,
-            estado=reserva.estado.value if hasattr(reserva.estado, 'value') else str(reserva.estado),
-            nombre_evento=evento.nombre_evento,
-            tipo_evento=evento.tipo_evento,
-            fecha_evento_inicio=evento.fecha_evento_inicio,
-            fecha_evento_fin=evento.fecha_evento_fin,
-            direccion=evento.direccion,
-            nombre_empresa=nombre_empresa,
-            monto_total=float(reserva.monto_total),
-            monto_adelanto=float(reserva.monto_adelanto),
-            monto_pendiente=float(reserva.monto_pendiente),
-            fecha_creacion=reserva.fecha_creacion,
-            detalles=detalles_out,
-        ))
-
-    return resultado

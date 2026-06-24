@@ -57,13 +57,26 @@ def aprobar_pago_completo(
     3. Emite el comprobante automáticamente
     4. Notifica a cliente y proveedor
     """
-    from app.services import reserva_service, notificacion_service
+    from app.services.reserva import checkout_service
+    from app.services import notificacion_service
+    from app.repositories.reserva_repository import EventoRepository, ReservaRepository, DetalleReservaRepository
+    from app.repositories.catalogo_repository import ServicioProductoRepository
+    from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
 
     # 1. Aprobar el pago
     pago = aprobar_pago(pago_id, codigo_transaccion, db)
 
     # 2. Confirmar la reserva (convierte bloqueo Redis → BD)
-    reserva = reserva_service.confirmar_reserva(reserva_temp_id, pago_id, db)
+    reserva = checkout_service.confirmar_reserva(
+        reserva_temp_id, 
+        pago_id, 
+        EventoRepository(db),
+        ReservaRepository(db),
+        DetalleReservaRepository(db),
+        ServicioProductoRepository(db),
+        OcupacionServicioProductoRepository(db),
+        OcupacionGlobalProveedorRepository(db)
+    )
 
     # 3. Emitir comprobante automáticamente
     emitir_comprobante(
