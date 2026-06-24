@@ -1,14 +1,24 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
-from app.database import get_db
-from app.schemas.catalogo import (
-    CategoriaCreate, CategoriaOut,
-    TematicaCreate, TematicaOut,
-    ServicioProductoCreate, ServicioProductoUpdate, ServicioProductoOut
+from app.domain.catalogo.schemas import (
+    CategoriaCreate,
+    CategoriaOut,
+    TematicaCreate,
+    TematicaOut,
+    ServicioProductoCreate,
+    ServicioProductoUpdate,
+    ServicioProductoOut,
+)
+from app.repositories.catalogo_repository import (
+    CategoriaRepository,
+    TematicaRepository,
+    ServicioProductoRepository,
+    get_categoria_repo,
+    get_tematica_repo,
+    get_servicio_producto_repo
 )
 from app.services import catalogo_service
 
@@ -18,76 +28,79 @@ router = APIRouter()
 # ── Categorías ────────────────────────────────────────────────────────────────
 
 @router.get("/categorias", response_model=List[CategoriaOut])
-def listar_categorias(db: Session = Depends(get_db)):
-    return catalogo_service.listar_categorias(db)
+def listar_categorias(repo: CategoriaRepository = Depends(get_categoria_repo)):
+    return catalogo_service.listar_categorias(repo)
 
 
 @router.post("/categorias", response_model=CategoriaOut, status_code=201)
 def crear_categoria(
     datos: CategoriaCreate,
-    db: Session = Depends(get_db),
+    repo: CategoriaRepository = Depends(get_categoria_repo),
     _: int = Depends(get_current_user)
 ):
-    return catalogo_service.crear_categoria(datos, db)
+    return catalogo_service.crear_categoria(datos, repo)
 
 
 # ── Temáticas ─────────────────────────────────────────────────────────────────
 
 @router.get("/tematicas", response_model=List[TematicaOut])
-def listar_tematicas(categoria_id: int = None, db: Session = Depends(get_db)):
-    return catalogo_service.listar_tematicas(categoria_id, db)
+def listar_tematicas(
+    categoria_id: Optional[int] = Query(None, description="Filtrar por ID de categoría"),
+    repo: TematicaRepository = Depends(get_tematica_repo)
+):
+    return catalogo_service.listar_tematicas(categoria_id, repo)
 
 
 @router.post("/tematicas", response_model=TematicaOut, status_code=201)
 def crear_tematica(
     datos: TematicaCreate,
-    db: Session = Depends(get_db),
+    repo: TematicaRepository = Depends(get_tematica_repo),
     _: int = Depends(get_current_user)
 ):
-    return catalogo_service.crear_tematica(datos, db)
+    return catalogo_service.crear_tematica(datos, repo)
 
 
 # ── Servicios y Productos ─────────────────────────────────────────────────────
 
 @router.get("/servicios", response_model=List[ServicioProductoOut])
 def listar_servicios(
-    proveedor_id: int = None,
-    categoria_id: int = None,
-    db: Session = Depends(get_db)
+    proveedor_id: Optional[int] = Query(None, description="Filtrar por ID de proveedor"),
+    categoria_id: Optional[int] = Query(None, description="Filtrar por ID de categoría"),
+    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo)
 ):
     """Lista servicios/productos activos. Filtra por proveedor o categoría."""
-    return catalogo_service.listar_servicios(proveedor_id, categoria_id, db)
+    return catalogo_service.listar_servicios(proveedor_id, categoria_id, repo)
 
 
 @router.get("/servicios/{servicio_id}", response_model=ServicioProductoOut)
-def obtener_servicio(servicio_id: int, db: Session = Depends(get_db)):
-    return catalogo_service.obtener_servicio(servicio_id, db)
+def obtener_servicio(servicio_id: int, repo: ServicioProductoRepository = Depends(get_servicio_producto_repo)):
+    return catalogo_service.obtener_servicio(servicio_id, repo)
 
 
 @router.post("/servicios", response_model=ServicioProductoOut, status_code=201)
 def crear_servicio(
     datos: ServicioProductoCreate,
-    db: Session = Depends(get_db),
+    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
     _: int = Depends(get_current_user)
 ):
-    return catalogo_service.crear_servicio(datos, db)
+    return catalogo_service.crear_servicio(datos, repo)
 
 
 @router.patch("/servicios/{servicio_id}", response_model=ServicioProductoOut)
 def actualizar_servicio(
     servicio_id: int,
     datos: ServicioProductoUpdate,
-    db: Session = Depends(get_db),
+    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
     _: int = Depends(get_current_user)
 ):
-    return catalogo_service.actualizar_servicio(servicio_id, datos, db)
+    return catalogo_service.actualizar_servicio(servicio_id, datos, repo)
 
 
 @router.delete("/servicios/{servicio_id}", status_code=204)
 def eliminar_servicio(
     servicio_id: int,
-    db: Session = Depends(get_db),
+    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
     _: int = Depends(get_current_user)
 ):
     """Soft delete: guarda la fecha de eliminación sin borrar el registro."""
-    catalogo_service.eliminar_servicio(servicio_id, db)
+    catalogo_service.eliminar_servicio(servicio_id, repo)

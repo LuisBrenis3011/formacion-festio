@@ -9,15 +9,17 @@ Usa SUM agregado en vez de .first() para manejar múltiples registros
 de ocupación solapados en el mismo rango horario.
 """
 from sqlalchemy import func
-from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List
 
-from app.models.catalogo       import ServicioProducto
-from app.models.disponibilidad import OcupacionServicioProducto, OcupacionGlobalProveedor
-from app.models.enums          import EstadoBasico
-from app.models.usuario        import Proveedor
-from app.schemas.reserva       import DetalleReservaCreate, DisponibilidadResponse
+from app.domain.catalogo.models       import ServicioProducto
+from app.domain.disponibilidad.models import OcupacionServicioProducto, OcupacionGlobalProveedor
+from app.domain.common.enums          import EstadoBasico
+from app.domain.reservas.schemas       import DetalleReservaCreate, DisponibilidadResponse
+
+from app.repositories.usuario_repository import ProveedorRepository
+from app.repositories.catalogo_repository import ServicioProductoRepository
+from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
 
 
 def consultar_disponibilidad(
@@ -25,13 +27,16 @@ def consultar_disponibilidad(
     fecha_inicio: datetime,
     fecha_fin:    datetime,
     detalles:     List[DetalleReservaCreate],
-    db:           Session,
+    proveedor_repo: ProveedorRepository,
+    servicio_repo: ServicioProductoRepository,
+    ocupacion_sp_repo: OcupacionServicioProductoRepository,
+    ocupacion_global_repo: OcupacionGlobalProveedorRepository,
 ) -> DisponibilidadResponse:
     """
     Verifica si todos los ítems solicitados tienen stock
     disponible en el rango horario del evento.
     """
-    proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    proveedor = proveedor_repo.get(proveedor_id)
     if not proveedor:
         return DisponibilidadResponse(disponible=False, mensaje="Proveedor no encontrado")
 
@@ -42,7 +47,7 @@ def consultar_disponibilidad(
         if not detalle.servicio_producto_id:
             continue
 
-        servicio = db.query(ServicioProducto).filter(
+        servicio = servicio_repo.db.query(ServicioProducto).filter(
             ServicioProducto.id == detalle.servicio_producto_id,
             ServicioProducto.deleted_at == None,
             ServicioProducto.estado == EstadoBasico.ACTIVO,
@@ -54,7 +59,7 @@ def consultar_disponibilidad(
 
         # SUM agregado: maneja múltiples ocupaciones solapadas
         cantidad_ocupada = (
-            db.query(func.coalesce(func.sum(OcupacionServicioProducto.cantidad_ocupada), 0))
+            ocupacion_sp_repo.db.query(func.coalesce(func.sum(OcupacionServicioProducto.cantidad_ocupada), 0))
             .filter(
                 OcupacionServicioProducto.servicio_producto_id == servicio.id,
                 OcupacionServicioProducto.fecha_hora_inicio < fecha_fin,
@@ -78,7 +83,7 @@ def consultar_disponibilidad(
     # Validar tope físico global del proveedor
     if personas_requeridas > 0:
         ya_ocupadas = (
-            db.query(func.coalesce(func.sum(OcupacionGlobalProveedor.total_personas_ocupadas), 0))
+            ocupacion_global_repo.db.query(func.coalesce(func.sum(OcupacionGlobalProveedor.total_personas_ocupadas), 0))
             .filter(
                 OcupacionGlobalProveedor.proveedor_id      == proveedor_id,
                 OcupacionGlobalProveedor.fecha_hora_inicio  < fecha_fin,

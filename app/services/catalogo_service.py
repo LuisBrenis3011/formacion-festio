@@ -2,51 +2,43 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
-from app.models.catalogo import Categoria, Tematica, ServicioProducto
-from app.models.enums import EstadoBasico
-from app.schemas.catalogo import (
+from app.domain.catalogo.models import Categoria, Tematica, ServicioProducto
+from app.domain.common.enums import EstadoBasico
+from app.domain.catalogo.schemas import (
     CategoriaCreate,
     TematicaCreate,
     ServicioProductoCreate,
     ServicioProductoUpdate,
 )
+from app.repositories.catalogo_repository import CategoriaRepository, TematicaRepository, ServicioProductoRepository
 
 
 # ── Categorías ────────────────────────────────────────────────────────────────
 
-def listar_categorias(db: Session) -> List[Categoria]:
+def listar_categorias(repo: CategoriaRepository) -> List[Categoria]:
     """Retorna todas las categorías."""
-    return db.query(Categoria).all()
+    return repo.get_all()
 
 
-def crear_categoria(datos: CategoriaCreate, db: Session) -> Categoria:
+def crear_categoria(datos: CategoriaCreate, repo: CategoriaRepository) -> Categoria:
     """Crea una nueva categoría."""
-    categoria = Categoria(**datos.model_dump())
-    db.add(categoria)
-    db.commit()
-    db.refresh(categoria)
-    return categoria
+    return repo.create(datos)
 
 
 # ── Temáticas ─────────────────────────────────────────────────────────────────
 
-def listar_tematicas(categoria_id: Optional[int], db: Session) -> List[Tematica]:
+def listar_tematicas(categoria_id: Optional[int], repo: TematicaRepository) -> List[Tematica]:
     """Lista temáticas. Filtra por categoría si se indica."""
-    query = db.query(Tematica)
+    query = repo.db.query(Tematica)
     if categoria_id:
         query = query.filter(Tematica.categoria_id == categoria_id)
     return query.all()
 
 
-def crear_tematica(datos: TematicaCreate, db: Session) -> Tematica:
+def crear_tematica(datos: TematicaCreate, repo: TematicaRepository) -> Tematica:
     """Crea una nueva temática."""
-    tematica = Tematica(**datos.model_dump())
-    db.add(tematica)
-    db.commit()
-    db.refresh(tematica)
-    return tematica
+    return repo.create(datos)
 
 
 # ── Servicios y Productos ─────────────────────────────────────────────────────
@@ -54,10 +46,10 @@ def crear_tematica(datos: TematicaCreate, db: Session) -> Tematica:
 def listar_servicios(
     proveedor_id: Optional[int],
     categoria_id: Optional[int],
-    db: Session,
+    repo: ServicioProductoRepository,
 ) -> List[ServicioProducto]:
     """Lista servicios/productos activos. Filtra por proveedor o categoría."""
-    query = db.query(ServicioProducto).filter(
+    query = repo.db.query(ServicioProducto).filter(
         ServicioProducto.estado == EstadoBasico.ACTIVO,
         ServicioProducto.deleted_at == None
     )
@@ -68,9 +60,9 @@ def listar_servicios(
     return query.all()
 
 
-def obtener_servicio(servicio_id: int, db: Session) -> ServicioProducto:
+def obtener_servicio(servicio_id: int, repo: ServicioProductoRepository) -> ServicioProducto:
     """Busca un servicio por ID. Lanza 404 si no existe o fue eliminado."""
-    servicio = db.query(ServicioProducto).filter(
+    servicio = repo.db.query(ServicioProducto).filter(
         ServicioProducto.id == servicio_id,
         ServicioProducto.deleted_at == None
     ).first()
@@ -79,40 +71,26 @@ def obtener_servicio(servicio_id: int, db: Session) -> ServicioProducto:
     return servicio
 
 
-def crear_servicio(datos: ServicioProductoCreate, db: Session) -> ServicioProducto:
+def crear_servicio(datos: ServicioProductoCreate, repo: ServicioProductoRepository) -> ServicioProducto:
     """Crea un nuevo servicio/producto."""
-    servicio = ServicioProducto(**datos.model_dump())
-    db.add(servicio)
-    db.commit()
-    db.refresh(servicio)
-    return servicio
+    return repo.create(datos)
 
 
 def actualizar_servicio(
-    servicio_id: int, datos: ServicioProductoUpdate, db: Session
+    servicio_id: int, datos: ServicioProductoUpdate, repo: ServicioProductoRepository
 ) -> ServicioProducto:
     """Actualiza los campos enviados del servicio. Lanza 404 si no existe."""
-    servicio = db.query(ServicioProducto).filter(
-        ServicioProducto.id == servicio_id
-    ).first()
+    servicio = repo.update(servicio_id, datos)
     if not servicio:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
-        setattr(servicio, campo, valor)
-
-    db.commit()
-    db.refresh(servicio)
     return servicio
 
 
-def eliminar_servicio(servicio_id: int, db: Session) -> None:
+def eliminar_servicio(servicio_id: int, repo: ServicioProductoRepository) -> None:
     """Soft delete: guarda la fecha de eliminación sin borrar el registro."""
-    servicio = db.query(ServicioProducto).filter(
-        ServicioProducto.id == servicio_id
-    ).first()
+    servicio = repo.get(servicio_id)
     if not servicio:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
 
     servicio.deleted_at = datetime.utcnow()
-    db.commit()
+    repo.db.commit()

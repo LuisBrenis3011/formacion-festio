@@ -1,18 +1,21 @@
 from typing import List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
-from app.models.catalogo import Paquete, ServicioProducto
-from app.models.enums import EstadoBasico, EstadoVerificacion
-from app.models.reserva import Reserva
-from app.models.usuario import Proveedor, Usuario
-from app.schemas.usuario import ProveedorCreate, ProveedorUpdate, ProveedorDashboardStats
+from app.domain.catalogo.models import Paquete, ServicioProducto
+from app.domain.common.enums import EstadoBasico, EstadoVerificacion
+from app.domain.reservas.models import Reserva
+from app.domain.usuarios.models import Proveedor, Usuario
+from app.domain.usuarios.schemas import ProveedorCreate, ProveedorUpdate, ProveedorDashboardStats
+
+from app.repositories.usuario_repository import ProveedorRepository
+from app.repositories.catalogo_repository import ServicioProductoRepository, PaqueteRepository
+from app.repositories.reserva_repository import ReservaRepository
 
 
-def listar_proveedores(distrito: Optional[str], db: Session) -> List[Proveedor]:
+def listar_proveedores(distrito: Optional[str], repo: ProveedorRepository) -> List[Proveedor]:
     """Lista proveedores verificados. Filtra por distrito si se indica."""
-    query = db.query(Proveedor).filter(
+    query = repo.db.query(Proveedor).filter(
         Proveedor.estado_verificacion == EstadoVerificacion.VERIFICADO
     )
     if distrito:
@@ -20,44 +23,34 @@ def listar_proveedores(distrito: Optional[str], db: Session) -> List[Proveedor]:
     return query.all()
 
 
-def obtener_proveedor(proveedor_id: int, db: Session) -> Proveedor:
+def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository) -> Proveedor:
     """Busca un proveedor por ID. Lanza 404 si no existe."""
-    proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    proveedor = repo.get(proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
     return proveedor
 
 
-def crear_proveedor(datos: ProveedorCreate, db: Session) -> Proveedor:
+def crear_proveedor(datos: ProveedorCreate, repo: ProveedorRepository) -> Proveedor:
     """Crea un nuevo proveedor a partir de los datos validados."""
-    proveedor = Proveedor(**datos.model_dump())
-    db.add(proveedor)
-    db.commit()
-    db.refresh(proveedor)
-    return proveedor
+    return repo.create(datos)
 
 
 def actualizar_proveedor(
-    proveedor_id: int, datos: ProveedorUpdate, db: Session
+    proveedor_id: int, datos: ProveedorUpdate, repo: ProveedorRepository
 ) -> Proveedor:
     """Actualiza los campos enviados del proveedor. Lanza 404 si no existe."""
-    proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    proveedor = repo.update(proveedor_id, datos)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
-
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
-        setattr(proveedor, campo, valor)
-
-    db.commit()
-    db.refresh(proveedor)
     return proveedor
 
 
 # ── Endpoints del proveedor autenticado ───────────────────────────────────────
 
-def obtener_mi_perfil(usuario: Usuario, db: Session) -> Proveedor:
+def obtener_mi_perfil(usuario: Usuario, repo: ProveedorRepository) -> Proveedor:
     """Obtiene el perfil del proveedor logueado."""
-    proveedor = db.query(Proveedor).filter(
+    proveedor = repo.db.query(Proveedor).filter(
         Proveedor.usuario_id == usuario.id
     ).first()
     if not proveedor:
@@ -66,32 +59,37 @@ def obtener_mi_perfil(usuario: Usuario, db: Session) -> Proveedor:
 
 
 def actualizar_mi_perfil(
-    usuario: Usuario, datos: ProveedorUpdate, db: Session
+    usuario: Usuario, datos: ProveedorUpdate, repo: ProveedorRepository
 ) -> Proveedor:
     """Actualiza el perfil propio del proveedor."""
-    proveedor = obtener_mi_perfil(usuario, db)
+    proveedor = obtener_mi_perfil(usuario, repo)
 
     for campo, valor in datos.model_dump(exclude_unset=True).items():
         setattr(proveedor, campo, valor)
 
-    db.commit()
-    db.refresh(proveedor)
+    repo.db.commit()
+    repo.db.refresh(proveedor)
     return proveedor
 
 
-def obtener_dashboard_stats(proveedor: Proveedor, db: Session) -> ProveedorDashboardStats:
+def obtener_dashboard_stats(
+    proveedor: Proveedor,
+    servicio_repo: ServicioProductoRepository,
+    paquete_repo: PaqueteRepository,
+    reserva_repo: ReservaRepository
+) -> ProveedorDashboardStats:
     """Estadísticas del proveedor para el dashboard."""
-    total_servicios = db.query(ServicioProducto).filter(
+    total_servicios = servicio_repo.db.query(ServicioProducto).filter(
         ServicioProducto.proveedor_id == proveedor.id,
         ServicioProducto.deleted_at == None,
     ).count()
 
-    total_paquetes = db.query(Paquete).filter(
+    total_paquetes = paquete_repo.db.query(Paquete).filter(
         Paquete.proveedor_id == proveedor.id,
         Paquete.estado == EstadoBasico.ACTIVO,
     ).count()
 
-    total_reservas = db.query(Reserva).filter(
+    total_reservas = reserva_repo.db.query(Reserva).filter(
         Reserva.proveedor_id == proveedor.id,
     ).count()
 

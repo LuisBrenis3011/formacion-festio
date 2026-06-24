@@ -1,38 +1,42 @@
 from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
-from app.models.resena import Resena
-from app.models.usuario import Proveedor, Usuario
-from app.schemas.pago import ResenaCreate
-from app.schemas.resena import ResenaPublicaCreate, ResenaPublicaOut
+from app.domain.resenas.models import Resena
+from app.domain.usuarios.models import Proveedor, Usuario
+from app.domain.pagos.schemas import ResenaCreate
+from app.domain.resenas.schemas import ResenaPublicaCreate, ResenaPublicaOut
+from app.repositories.resena_repository import ResenaRepository
+from app.repositories.usuario_repository import ProveedorRepository, UsuarioRepository
 
 
-def listar_resenas_proveedor(proveedor_id: int, db: Session) -> List[Resena]:
+def listar_resenas_proveedor(proveedor_id: int, repo: ResenaRepository) -> List[Resena]:
     """Lista todas las reseñas de un proveedor."""
-    return db.query(Resena).filter(Resena.proveedor_id == proveedor_id).all()
+    return repo.db.query(Resena).filter(Resena.proveedor_id == proveedor_id).all()
 
 
-def listar_resenas_publicas(proveedor_id: int, db: Session) -> List[ResenaPublicaOut]:
+def listar_resenas_publicas(
+    proveedor_id: int,
+    resena_repo: ResenaRepository,
+    usuario_repo: UsuarioRepository,
+) -> List[ResenaPublicaOut]:
     """Lista reseñas de un proveedor con el nombre del usuario que la escribió."""
     resenas = (
-        db.query(Resena)
+        resena_repo.db.query(Resena)
         .filter(Resena.proveedor_id == proveedor_id)
         .order_by(Resena.fecha.desc())
         .all()
     )
     resultado: List[ResenaPublicaOut] = []
     for r in resenas:
-        # Obtener nombre del usuario (por usuario_id directo o por cliente_id)
         nombre = "Usuario"
         if r.usuario_id:
-            usuario = db.query(Usuario).filter(Usuario.id == r.usuario_id).first()
+            usuario = usuario_repo.get(r.usuario_id)
             if usuario:
                 nombre = f"{usuario.nombre} {usuario.apellido[0]}." if usuario.apellido else usuario.nombre
         elif r.cliente_id:
-            from app.models.usuario import Cliente
-            cliente = db.query(Cliente).filter(Cliente.id == r.cliente_id).first()
+            from app.domain.usuarios.models import Cliente
+            cliente = usuario_repo.db.query(Cliente).filter(Cliente.id == r.cliente_id).first()
             if cliente and cliente.usuario:
                 u = cliente.usuario
                 nombre = f"{u.nombre} {u.apellido[0]}." if u.apellido else u.nombre
@@ -48,18 +52,18 @@ def listar_resenas_publicas(proveedor_id: int, db: Session) -> List[ResenaPublic
     return resultado
 
 
-def crear_resena_publica(datos: ResenaPublicaCreate, usuario: Usuario, db: Session) -> Resena:
-    """
-    Crea una reseña pública (sin reserva asociada).
-    El usuario autenticado queda vinculado directamente.
-    """
+def crear_resena_publica(
+    datos: ResenaPublicaCreate,
+    usuario: Usuario,
+    resena_repo: ResenaRepository,
+    proveedor_repo: ProveedorRepository
+) -> Resena:
     if not (1 <= datos.calificacion <= 5):
         raise HTTPException(
             status_code=400, detail="La calificación debe ser entre 1 y 5"
         )
 
-    # Verificar que el proveedor existe
-    proveedor = db.query(Proveedor).filter(Proveedor.id == datos.proveedor_id).first()
+    proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
@@ -69,41 +73,39 @@ def crear_resena_publica(datos: ResenaPublicaCreate, usuario: Usuario, db: Sessi
         calificacion=datos.calificacion,
         comentario=datos.comentario,
     )
-    db.add(resena)
-    db.flush()
+    resena_repo.db.add(resena)
+    resena_repo.db.flush()
 
-    # Recalcular el promedio del proveedor
-    todas = db.query(Resena).filter(Resena.proveedor_id == datos.proveedor_id).all()
+    todas = resena_repo.db.query(Resena).filter(Resena.proveedor_id == datos.proveedor_id).all()
     promedio = sum(r.calificacion for r in todas) / len(todas)
     proveedor.calificacion_promedio = round(promedio, 2)
 
-    db.commit()
-    db.refresh(resena)
+    resena_repo.db.commit()
+    resena_repo.db.refresh(resena)
     return resena
 
 
-def crear_resena(datos: ResenaCreate, db: Session) -> Resena:
-    """
-    El cliente deja su reseña después de completar el evento.
-    Valida la calificación y recalcula el promedio del proveedor.
-    """
+def crear_resena(
+    datos: ResenaCreate,
+    resena_repo: ResenaRepository,
+    proveedor_repo: ProveedorRepository
+) -> Resena:
     if not (1 <= datos.calificacion <= 5):
         raise HTTPException(
             status_code=400, detail="La calificación debe ser entre 1 y 5"
         )
 
     resena = Resena(**datos.model_dump())
-    db.add(resena)
-    db.flush()
+    resena_repo.db.add(resena)
+    resena_repo.db.flush()
 
-    # Recalcular el promedio del proveedor
-    todas = db.query(Resena).filter(Resena.proveedor_id == datos.proveedor_id).all()
+    todas = resena_repo.db.query(Resena).filter(Resena.proveedor_id == datos.proveedor_id).all()
     promedio = sum(r.calificacion for r in todas) / len(todas)
 
-    proveedor = db.query(Proveedor).filter(Proveedor.id == datos.proveedor_id).first()
+    proveedor = proveedor_repo.get(datos.proveedor_id)
     if proveedor:
         proveedor.calificacion_promedio = round(promedio, 2)
 
-    db.commit()
-    db.refresh(resena)
+    resena_repo.db.commit()
+    resena_repo.db.refresh(resena)
     return resena

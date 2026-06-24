@@ -1,28 +1,28 @@
 from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoBasico
-from app.models.usuario import Usuario
+from app.domain.common.enums import EstadoBasico
+from app.domain.usuarios.models import Usuario
+from app.repositories.usuario_repository import UsuarioRepository
 
 
-def listar_usuarios(db: Session) -> List[Usuario]:
+def listar_usuarios(repo: UsuarioRepository) -> List[Usuario]:
     """Retorna todos los usuarios registrados."""
-    return db.query(Usuario).all()
+    return repo.get_all()
 
 
-def obtener_usuario(usuario_id: int, db: Session) -> Usuario:
+def obtener_usuario(usuario_id: int, repo: UsuarioRepository) -> Usuario:
     """Busca un usuario por ID. Lanza 404 si no existe."""
-    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    usuario = repo.get(usuario_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return usuario
 
 
-def actualizar_estado_usuario(usuario_id: int, estado: str, db: Session) -> Usuario:
+def actualizar_estado_usuario(usuario_id: int, estado: str, repo: UsuarioRepository) -> Usuario:
     """Actualiza el estado de un usuario. Valida que el estado sea válido."""
-    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    usuario = repo.get(usuario_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -32,6 +32,6 @@ def actualizar_estado_usuario(usuario_id: int, estado: str, db: Session) -> Usua
         raise HTTPException(status_code=400, detail="Estado inválido. Use ACTIVO o INACTIVO")
 
     usuario.estado = estado_enum
-    db.commit()
-    db.refresh(usuario)
+    repo.db.commit()
+    repo.db.refresh(usuario)
     return usuario

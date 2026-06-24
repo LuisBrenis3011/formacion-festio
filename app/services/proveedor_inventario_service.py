@@ -6,18 +6,18 @@ from datetime import datetime
 from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
-from app.models.catalogo import Categoria, ServicioProducto
-from app.models.enums import EstadoBasico
-from app.models.usuario import Proveedor
-from app.schemas.catalogo import ProveedorServicioCreate, ProveedorServicioUpdate
+from app.domain.catalogo.models import ServicioProducto
+from app.domain.usuarios.models import Proveedor
+from app.domain.catalogo.schemas import ProveedorServicioCreate, ProveedorServicioUpdate
+
+from app.repositories.catalogo_repository import CategoriaRepository, ServicioProductoRepository
 
 
-def listar_inventario(proveedor: Proveedor, db: Session) -> List[ServicioProducto]:
+def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository) -> List[ServicioProducto]:
     """Lista todos los servicios/productos del proveedor (activos y no eliminados)."""
     return (
-        db.query(ServicioProducto)
+        repo.db.query(ServicioProducto)
         .filter(
             ServicioProducto.proveedor_id == proveedor.id,
             ServicioProducto.deleted_at == None,
@@ -27,9 +27,9 @@ def listar_inventario(proveedor: Proveedor, db: Session) -> List[ServicioProduct
     )
 
 
-def obtener_servicio(servicio_id: int, proveedor: Proveedor, db: Session) -> ServicioProducto:
+def obtener_servicio(servicio_id: int, proveedor: Proveedor, repo: ServicioProductoRepository) -> ServicioProducto:
     """Busca un servicio que pertenezca al proveedor. Lanza 404 si no es suyo."""
-    servicio = db.query(ServicioProducto).filter(
+    servicio = repo.db.query(ServicioProducto).filter(
         ServicioProducto.id == servicio_id,
         ServicioProducto.proveedor_id == proveedor.id,
         ServicioProducto.deleted_at == None,
@@ -42,11 +42,12 @@ def obtener_servicio(servicio_id: int, proveedor: Proveedor, db: Session) -> Ser
 def crear_servicio(
     datos: ProveedorServicioCreate,
     proveedor: Proveedor,
-    db: Session,
+    repo: ServicioProductoRepository,
+    categoria_repo: CategoriaRepository,
 ) -> ServicioProducto:
     """Crea un servicio/producto para el proveedor logueado."""
     # Validar que la categoría existe
-    categoria = db.query(Categoria).filter(Categoria.id == datos.categoria_id).first()
+    categoria = categoria_repo.get(datos.categoria_id)
     if not categoria:
         raise HTTPException(status_code=400, detail="Categoría no encontrada")
 
@@ -60,9 +61,9 @@ def crear_servicio(
         stock_maximo_simultaneo=datos.stock_maximo_simultaneo,
         duracion_base_horas=datos.duracion_base_horas,
     )
-    db.add(servicio)
-    db.commit()
-    db.refresh(servicio)
+    repo.db.add(servicio)
+    repo.db.commit()
+    repo.db.refresh(servicio)
     return servicio
 
 
@@ -70,21 +71,21 @@ def actualizar_servicio(
     servicio_id: int,
     datos: ProveedorServicioUpdate,
     proveedor: Proveedor,
-    db: Session,
+    repo: ServicioProductoRepository,
 ) -> ServicioProducto:
     """Actualiza un servicio que pertenezca al proveedor logueado."""
-    servicio = obtener_servicio(servicio_id, proveedor, db)
+    servicio = obtener_servicio(servicio_id, proveedor, repo)
 
     for campo, valor in datos.model_dump(exclude_unset=True).items():
         setattr(servicio, campo, valor)
 
-    db.commit()
-    db.refresh(servicio)
+    repo.db.commit()
+    repo.db.refresh(servicio)
     return servicio
 
 
-def eliminar_servicio(servicio_id: int, proveedor: Proveedor, db: Session) -> None:
+def eliminar_servicio(servicio_id: int, proveedor: Proveedor, repo: ServicioProductoRepository) -> None:
     """Soft delete: guarda la fecha de eliminación."""
-    servicio = obtener_servicio(servicio_id, proveedor, db)
+    servicio = obtener_servicio(servicio_id, proveedor, repo)
     servicio.deleted_at = datetime.utcnow()
-    db.commit()
+    repo.db.commit()
