@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.reserva import PreReservaCreate
+from app.domain.reservas.schemas import PreReservaCreate
 
 
 class CantidadServicio(BaseModel):

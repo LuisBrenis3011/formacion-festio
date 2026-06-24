@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_proveedor
 from app.database import get_db
-from app.models.usuario import Proveedor
-from app.schemas.catalogo import (
+from app.domain.usuarios.models import Proveedor
+from app.domain.catalogo.schemas import (
     ProveedorPaqueteCreate, ProveedorPaqueteUpdate, PaqueteOut,
 )
 from app.services import proveedor_paquete_service as paq_service

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.models.enums import EstadoReserva
+from app.domain.common.enums import EstadoReserva
 
 
 class EventoCreate(BaseModel):

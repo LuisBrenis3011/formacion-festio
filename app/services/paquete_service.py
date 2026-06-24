@@ -3,9 +3,9 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.catalogo import Paquete, DetallePaquete
-from app.models.enums import EstadoBasico
-from app.schemas.catalogo import PaqueteCreate, PaqueteUpdate
+from app.domain.catalogo.models import Paquete, DetallePaquete
+from app.domain.common.enums import EstadoBasico
+from app.domain.catalogo.schemas import PaqueteCreate, PaqueteUpdate
 
 
 def listar_paquetes(

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.database import get_db
-from app.schemas.catalogo import (
+from app.domain.catalogo.schemas import (
     CategoriaCreate, CategoriaOut,
     TematicaCreate, TematicaOut,
     ServicioProductoCreate, ServicioProductoUpdate, ServicioProductoOut

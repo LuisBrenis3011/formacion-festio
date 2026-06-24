@@ -9,7 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-from app.models.enums import EstadoBasico, RolPersonal
+from app.domain.common.enums import EstadoBasico, RolPersonal
 
 
 class Personal(Base):

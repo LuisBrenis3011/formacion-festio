@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.core.security import decode_token
-from app.models.enums import RolUsuario
-from app.models.usuario import Usuario, Proveedor
+from app.domain.common.enums import RolUsuario
+from app.domain.usuarios.models import Usuario, Proveedor
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)

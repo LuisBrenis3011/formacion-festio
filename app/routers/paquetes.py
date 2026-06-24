@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.database import get_db
-from app.schemas.catalogo import PaqueteCreate, PaqueteUpdate, PaqueteOut
+from app.domain.catalogo.schemas import PaqueteCreate, PaqueteUpdate, PaqueteOut
 from app.services import paquete_service
 
 router = APIRouter()

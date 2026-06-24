@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.models.enums import EstadoBasico, RolPersonal
+from app.domain.common.enums import EstadoBasico, RolPersonal
 
 
 class PersonalRolCreate(BaseModel):

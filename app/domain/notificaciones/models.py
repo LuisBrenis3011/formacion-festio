@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
-from app.models.enums import CanalNotificacion, EstadoNotificacion, TipoNotificacion
+from app.domain.common.enums import CanalNotificacion, EstadoNotificacion, TipoNotificacion
 
 
 class Notificacion(Base):

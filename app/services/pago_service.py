@@ -1,11 +1,11 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app.models.enums   import EstadoPago, TipoComprobante
-from app.models.pago    import PagoTransaccion, Comprobante
-from app.models.reserva import Reserva, Evento
-from app.models.usuario import Cliente, Proveedor
-from app.schemas.pago   import PagoCreate
+from app.domain.common.enums   import EstadoPago, TipoComprobante
+from app.domain.pagos.models    import PagoTransaccion, Comprobante
+from app.domain.reservas.models import Reserva, Evento
+from app.domain.usuarios.models import Cliente, Proveedor
+from app.domain.pagos.schemas   import PagoCreate
 
 
 def procesar_pago(datos: PagoCreate, db: Session) -> PagoTransaccion:

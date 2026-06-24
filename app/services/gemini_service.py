@@ -4,8 +4,8 @@ from google import genai
 from google.genai import types, errors
 from sqlalchemy.orm import Session
 
-from app.models.catalogo import Categoria, ServicioProducto, Tematica
-from app.schemas.chat import RecomendacionRequest, GeminiRecomendacionSchema
+from app.domain.catalogo.models import Categoria, ServicioProducto, Tematica
+from app.domain.chat.schemas import RecomendacionRequest, GeminiRecomendacionSchema
 
 api_key = os.getenv("GEMINI_API_KEY")
 

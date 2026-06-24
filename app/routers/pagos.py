@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.database import get_db
-from app.schemas.pago import PagoCreate, PagoOut, ComprobanteOut
+from app.domain.pagos.schemas import PagoCreate, PagoOut, ComprobanteOut
 from app.services import pago_service
 
 router = APIRouter()

@@ -3,9 +3,9 @@ from typing import List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoBasico
-from app.models.personal import Personal, PersonalRol
-from app.schemas.personal import PersonalCreate, PersonalUpdate
+from app.domain.common.enums import EstadoBasico
+from app.domain.personal.models import Personal, PersonalRol
+from app.domain.personal.schemas import PersonalCreate, PersonalUpdate
 
 
 def listar_personal_proveedor(proveedor_id: int, db: Session) -> List[Personal]:

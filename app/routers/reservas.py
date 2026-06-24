@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, get_optional_current_user
 from app.database import get_db
-from app.models.usuario import Usuario
-from app.schemas.reserva import (
+from app.domain.usuarios.models import Usuario
+from app.domain.reservas.schemas import (
     CheckoutClienteCreate,
     CheckoutReservaResponse,
     EventoCreate,

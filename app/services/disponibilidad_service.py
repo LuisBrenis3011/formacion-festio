@@ -13,11 +13,11 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List
 
-from app.models.catalogo       import ServicioProducto
-from app.models.disponibilidad import OcupacionServicioProducto, OcupacionGlobalProveedor
-from app.models.enums          import EstadoBasico
-from app.models.usuario        import Proveedor
-from app.schemas.reserva       import DetalleReservaCreate, DisponibilidadResponse
+from app.domain.catalogo.models       import ServicioProducto
+from app.domain.disponibilidad.models import OcupacionServicioProducto, OcupacionGlobalProveedor
+from app.domain.common.enums          import EstadoBasico
+from app.domain.usuarios.models        import Proveedor
+from app.domain.reservas.schemas       import DetalleReservaCreate, DisponibilidadResponse
 
 
 def consultar_disponibilidad(

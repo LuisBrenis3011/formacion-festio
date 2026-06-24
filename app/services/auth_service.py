@@ -1,16 +1,22 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.enums import EstadoBasico, RolUsuario
-from app.models.usuario import Usuario, Cliente, Proveedor
-from app.schemas.usuario import (
+from app.domain.common.enums import EstadoBasico, RolUsuario
+from app.domain.usuarios.models import Usuario, Cliente, Proveedor
+from app.domain.usuarios.schemas import (
     UsuarioCreate, LoginRequest, TokenResponse,
     RegistroProveedorRequest, MeResponse,
 )
 from app.core.security import hash_password, verify_password, create_access_token
+from app.repositories.usuario_repository import UsuarioRepository, ClienteRepository, ProveedorRepository
 
 
-def registrar_usuario(datos: UsuarioCreate, db: Session) -> Usuario:
-    existe = db.query(Usuario).filter(Usuario.email == datos.email).first()
+def registrar_usuario(
+    datos: UsuarioCreate,
+    usuario_repo: 'UsuarioRepository',
+    cliente_repo: 'ClienteRepository',
+    proveedor_repo: 'ProveedorRepository'
+) -> Usuario:
+    existe = usuario_repo.get_by_email(datos.email)
     if existe:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
@@ -22,23 +28,27 @@ def registrar_usuario(datos: UsuarioCreate, db: Session) -> Usuario:
         contrasena_hash = hash_password(datos.password),
         rol             = datos.rol,
     )
-    db.add(usuario)
-    db.flush()  # Obtener el ID antes del commit
+    usuario_repo.db.add(usuario)
+    usuario_repo.db.flush()  # Obtener el ID antes del commit
 
     # Crear perfil según el rol
     if datos.rol == RolUsuario.CLIENTE:
-        db.add(Cliente(usuario_id=usuario.id))
+        cliente_repo.db.add(Cliente(usuario_id=usuario.id))
     elif datos.rol == RolUsuario.PROVEEDOR:
-        db.add(Proveedor(usuario_id=usuario.id, nombre_empresa=datos.nombre, ruc="", distrito=""))
+        proveedor_repo.db.add(Proveedor(usuario_id=usuario.id, nombre_empresa=datos.nombre, ruc="", distrito=""))
 
-    db.commit()
-    db.refresh(usuario)
+    usuario_repo.db.commit()
+    usuario_repo.db.refresh(usuario)
     return usuario
 
 
-def registrar_proveedor(datos: RegistroProveedorRequest, db: Session) -> TokenResponse:
+def registrar_proveedor(
+    datos: RegistroProveedorRequest,
+    usuario_repo: 'UsuarioRepository',
+    proveedor_repo: 'ProveedorRepository'
+) -> TokenResponse:
     """Registro específico para proveedores con datos de empresa."""
-    existe = db.query(Usuario).filter(Usuario.email == datos.email).first()
+    existe = usuario_repo.get_by_email(datos.email)
     if existe:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
@@ -50,8 +60,8 @@ def registrar_proveedor(datos: RegistroProveedorRequest, db: Session) -> TokenRe
         contrasena_hash = hash_password(datos.password),
         rol             = RolUsuario.PROVEEDOR,
     )
-    db.add(usuario)
-    db.flush()
+    usuario_repo.db.add(usuario)
+    usuario_repo.db.flush()
 
     proveedor = Proveedor(
         usuario_id             = usuario.id,
@@ -61,10 +71,10 @@ def registrar_proveedor(datos: RegistroProveedorRequest, db: Session) -> TokenRe
         distrito               = datos.distrito,
         capacidad_humana_total = datos.capacidad_humana_total or 0,
     )
-    db.add(proveedor)
-    db.commit()
-    db.refresh(usuario)
-    db.refresh(proveedor)
+    proveedor_repo.db.add(proveedor)
+    usuario_repo.db.commit()
+    usuario_repo.db.refresh(usuario)
+    proveedor_repo.db.refresh(proveedor)
 
     token = create_access_token({"sub": str(usuario.id), "rol": usuario.rol.value})
     return TokenResponse(
@@ -77,8 +87,8 @@ def registrar_proveedor(datos: RegistroProveedorRequest, db: Session) -> TokenRe
     )
 
 
-def login(datos: LoginRequest, db: Session) -> TokenResponse:
-    usuario = db.query(Usuario).filter(Usuario.email == datos.email).first()
+def login(datos: LoginRequest, usuario_repo: 'UsuarioRepository') -> TokenResponse:
+    usuario = usuario_repo.get_by_email(datos.email)
 
     if not usuario or not verify_password(datos.password, usuario.contrasena_hash):
         raise HTTPException(

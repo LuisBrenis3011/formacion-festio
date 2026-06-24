@@ -4,9 +4,9 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.catalogo import Categoria, Tematica, ServicioProducto
-from app.models.enums import EstadoBasico
-from app.schemas.catalogo import (
+from app.domain.catalogo.models import Categoria, Tematica, ServicioProducto
+from app.domain.common.enums import EstadoBasico
+from app.domain.catalogo.schemas import (
     CategoriaCreate,
     TematicaCreate,
     ServicioProductoCreate,

@@ -11,15 +11,15 @@ from typing import Dict, List, Optional, Set, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.catalogo import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
-from app.models.disponibilidad import OcupacionServicioProducto
-from app.models.enums import EstadoBasico, EstadoVerificacion
-from app.models.usuario import Proveedor
-from app.schemas.chat import (
+from app.domain.catalogo.models import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
+from app.domain.disponibilidad.models import OcupacionServicioProducto
+from app.domain.common.enums import EstadoBasico, EstadoVerificacion
+from app.domain.usuarios.models import Proveedor
+from app.domain.chat.schemas import (
     ItemRecomendado, PaqueteRecomendado, ProveedorRecomendado,
     RecomendacionRequest, RecomendacionResponse,
 )
-from app.schemas.reserva import PreReservaCreate, PreReservaItemCreate
+from app.domain.reservas.schemas import PreReservaCreate, PreReservaItemCreate
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HEURÍSTICAS DE NEGOCIO (no son datos de catálogo)

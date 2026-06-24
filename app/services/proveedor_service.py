@@ -3,11 +3,11 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.catalogo import Paquete, ServicioProducto
-from app.models.enums import EstadoBasico, EstadoVerificacion
-from app.models.reserva import Reserva
-from app.models.usuario import Proveedor, Usuario
-from app.schemas.usuario import ProveedorCreate, ProveedorUpdate, ProveedorDashboardStats
+from app.domain.catalogo.models import Paquete, ServicioProducto
+from app.domain.common.enums import EstadoBasico, EstadoVerificacion
+from app.domain.reservas.models import Reserva
+from app.domain.usuarios.models import Proveedor, Usuario
+from app.domain.usuarios.schemas import ProveedorCreate, ProveedorUpdate, ProveedorDashboardStats
 
 
 def listar_proveedores(distrito: Optional[str], db: Session) -> List[Proveedor]:

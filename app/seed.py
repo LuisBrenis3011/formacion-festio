@@ -17,9 +17,9 @@ if str(ROOT) not in sys.path:
 
 from app.core.security import hash_password
 from app.database import SessionLocal
-from app.models.catalogo import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
-from app.models.enums import EstadoBasico, EstadoVerificacion, RolUsuario, TipoItemCatalogo
-from app.models.usuario import Proveedor, Usuario
+from app.domain.catalogo.models import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
+from app.domain.common.enums import EstadoBasico, EstadoVerificacion, RolUsuario, TipoItemCatalogo
+from app.domain.usuarios.models import Proveedor, Usuario
 
 
 PASSWORD_DEMO = "festio2024"

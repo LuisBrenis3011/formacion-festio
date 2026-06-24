@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 load_dotenv()
 
-from app.schemas.chat import RecomendacionRequest, RecomendacionResponse
+from app.domain.chat.schemas import RecomendacionRequest, RecomendacionResponse
 from app.services.recomendacion_service import recomendar_evento
 from app.services.gemini_service import parsear_mensaje_cliente
 

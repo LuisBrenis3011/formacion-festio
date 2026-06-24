@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import Base
 
 # Importar todos los modelos para que Alembic los detecte
-import app.models  # noqa: F401
+import app.domain.all_models  # noqa: F401
 
 config = context.config
 # Alembic usa configparser internamente y necesita escapar '%' en URLs codificadas.

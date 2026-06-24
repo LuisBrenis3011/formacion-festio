@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.models.enums import EstadoBasico, TipoItemCatalogo
+from app.domain.common.enums import EstadoBasico, TipoItemCatalogo
 
 
 class CategoriaCreate(BaseModel):

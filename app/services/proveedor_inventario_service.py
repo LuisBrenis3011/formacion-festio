@@ -8,10 +8,10 @@ from typing import List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.catalogo import Categoria, ServicioProducto
-from app.models.enums import EstadoBasico
-from app.models.usuario import Proveedor
-from app.schemas.catalogo import ProveedorServicioCreate, ProveedorServicioUpdate
+from app.domain.catalogo.models import Categoria, ServicioProducto
+from app.domain.common.enums import EstadoBasico
+from app.domain.usuarios.models import Proveedor
+from app.domain.catalogo.schemas import ProveedorServicioCreate, ProveedorServicioUpdate
 
 
 def listar_inventario(proveedor: Proveedor, db: Session) -> List[ServicioProducto]:

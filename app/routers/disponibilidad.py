@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas.reserva import ConsultaDisponibilidadRequest, DisponibilidadResponse
+from app.domain.reservas.schemas import ConsultaDisponibilidadRequest, DisponibilidadResponse
 from app.services import disponibilidad_service
 from app.services.bloqueo_service import tiempo_restante
 

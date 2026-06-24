@@ -5,13 +5,13 @@ from decimal import Decimal
 from typing import List
 import uuid
 
-from app.models.reserva        import Evento, Reserva, DetalleReserva
-from app.models.catalogo       import DetallePaquete, ServicioProducto, Paquete
-from app.models.disponibilidad import OcupacionServicioProducto, OcupacionGlobalProveedor
-from app.models.enums          import EstadoBasico, EstadoPago, EstadoReserva, MetodoPago, RolUsuario, TipoPago
-from app.models.pago           import PagoTransaccion
-from app.models.usuario        import Cliente, Proveedor, Usuario
-from app.schemas.reserva       import (
+from app.domain.reservas.models        import Evento, Reserva, DetalleReserva
+from app.domain.catalogo.models       import DetallePaquete, ServicioProducto, Paquete
+from app.domain.disponibilidad.models import OcupacionServicioProducto, OcupacionGlobalProveedor
+from app.domain.common.enums          import EstadoBasico, EstadoPago, EstadoReserva, MetodoPago, RolUsuario, TipoPago
+from app.domain.pagos.models           import PagoTransaccion
+from app.domain.usuarios.models        import Cliente, Proveedor, Usuario
+from app.domain.reservas.schemas       import (
     CheckoutClienteCreate,
     CheckoutReservaResponse,
     DetalleReservaCreate,

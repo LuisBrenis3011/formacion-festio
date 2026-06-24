@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.database import get_db
-from app.schemas.personal import PersonalCreate, PersonalUpdate, PersonalOut
+from app.domain.personal.schemas import PersonalCreate, PersonalUpdate, PersonalOut
 from app.services import personal_service
 
 router = APIRouter()

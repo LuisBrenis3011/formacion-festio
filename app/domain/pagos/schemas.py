@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from app.models.enums import (
+from app.domain.common.enums import (
     CanalNotificacion,
     EstadoNotificacion,
     EstadoPago,

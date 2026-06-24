@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
-from app.models.enums import EstadoPago, MetodoPago, TipoComprobante, TipoPago
+from app.domain.common.enums import EstadoPago, MetodoPago, TipoComprobante, TipoPago
 
 
 class PagoTransaccion(Base):
