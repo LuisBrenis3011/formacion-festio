@@ -11,6 +11,11 @@ import { InventarioScreen } from "./screens/proveedor/InventarioScreen";
 import { PaquetesScreen } from "./screens/proveedor/PaquetesScreen";
 import { PerfilScreen } from "./screens/proveedor/PerfilScreen";
 
+import { CalendarioScreen } from "./screens/proveedor/CalendarioScreen";
+import { OperacionesScreen } from "./screens/proveedor/OperacionesScreen";
+import { FinanzasScreen } from "./screens/proveedor/FinanzasScreen";
+import { MetricasScreen } from "./screens/proveedor/MetricasScreen";
+
 export default function App() {
   return (
     <>
@@ -29,6 +34,13 @@ export default function App() {
             <Route path="inventario" element={<InventarioScreen />} />
             <Route path="paquetes" element={<PaquetesScreen />} />
             <Route path="perfil" element={<PerfilScreen />} />
+            
+            {/* Nuevos módulos */}
+            <Route path="calendario" element={<CalendarioScreen />} />
+            <Route path="operaciones" element={<OperacionesScreen />} />
+            <Route path="finanzas" element={<FinanzasScreen />} />
+            <Route path="metricas" element={<MetricasScreen />} />
+
             {/* Redirección por defecto */}
             <Route path="" element={<Navigate to="dashboard" replace />} />
           </Route>
