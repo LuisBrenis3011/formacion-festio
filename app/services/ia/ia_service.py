@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 load_dotenv()
 
 from app.domain.chat.schemas import RecomendacionRequest, RecomendacionResponse
-from app.services.recomendacion_service import recomendar_evento
-from app.services.gemini_service import parsear_mensaje_cliente
+from app.services.ia.recomendacion_service import recomendar_evento
+from app.services.ia.gemini_service import parsear_mensaje_cliente
 
 
 def _norm(texto: str) -> str:

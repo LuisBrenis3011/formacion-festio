@@ -10,7 +10,6 @@ from app.services import (  # noqa: F401
     catalogo_service,
     cliente_service,
     disponibilidad_service,
-    ia_service,
     notificacion_service,
     pago_service,
     paquete_service,
@@ -18,7 +17,6 @@ from app.services import (  # noqa: F401
     proveedor_inventario_service,
     proveedor_paquete_service,
     proveedor_service,
-    recomendacion_service,
     resena_service,
     usuario_service,
 )

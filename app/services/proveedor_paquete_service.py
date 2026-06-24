@@ -5,7 +5,7 @@ Valida ownership de servicios al armar un paquete.
 from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import joinedload
 
 from app.domain.catalogo.models import (
     Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica,
@@ -14,11 +14,16 @@ from app.domain.common.enums import EstadoBasico
 from app.domain.usuarios.models import Proveedor
 from app.domain.catalogo.schemas import ProveedorPaqueteCreate, ProveedorPaqueteUpdate
 
+from app.repositories.catalogo_repository import (
+    PaqueteRepository, DetallePaqueteRepository, CategoriaRepository,
+    TematicaRepository, ServicioProductoRepository
+)
 
-def listar_paquetes(proveedor: Proveedor, db: Session) -> List[Paquete]:
+
+def listar_paquetes(proveedor: Proveedor, repo: PaqueteRepository) -> List[Paquete]:
     """Lista paquetes del proveedor con detalles cargados."""
     return (
-        db.query(Paquete)
+        repo.db.query(Paquete)
         .options(
             joinedload(Paquete.detalles).joinedload(DetallePaquete.servicio_producto),
         )
@@ -31,10 +36,10 @@ def listar_paquetes(proveedor: Proveedor, db: Session) -> List[Paquete]:
     )
 
 
-def obtener_paquete(paquete_id: int, proveedor: Proveedor, db: Session) -> Paquete:
+def obtener_paquete(paquete_id: int, proveedor: Proveedor, repo: PaqueteRepository) -> Paquete:
     """Busca un paquete que pertenezca al proveedor. Lanza 404 si no es suyo."""
     paquete = (
-        db.query(Paquete)
+        repo.db.query(Paquete)
         .options(
             joinedload(Paquete.detalles).joinedload(DetallePaquete.servicio_producto),
         )
@@ -52,17 +57,21 @@ def obtener_paquete(paquete_id: int, proveedor: Proveedor, db: Session) -> Paque
 def crear_paquete(
     datos: ProveedorPaqueteCreate,
     proveedor: Proveedor,
-    db: Session,
+    repo: PaqueteRepository,
+    detalle_repo: DetallePaqueteRepository,
+    categoria_repo: CategoriaRepository,
+    tematica_repo: TematicaRepository,
+    servicio_repo: ServicioProductoRepository,
 ) -> Paquete:
     """Crea un paquete con detalles. Valida ownership de cada servicio incluido."""
     # Validar categoría
-    categoria = db.query(Categoria).filter(Categoria.id == datos.categoria_id).first()
+    categoria = categoria_repo.get(datos.categoria_id)
     if not categoria:
         raise HTTPException(status_code=400, detail="Categoría no encontrada")
 
     # Validar temática (si se provee)
     if datos.tematica_id:
-        tematica = db.query(Tematica).filter(
+        tematica = tematica_repo.db.query(Tematica).filter(
             Tematica.id == datos.tematica_id,
             Tematica.categoria_id == datos.categoria_id,
         ).first()
@@ -78,7 +87,7 @@ def crear_paquete(
 
     srv_ids = [d.servicio_producto_id for d in datos.detalles]
     servicios_propios = (
-        db.query(ServicioProducto.id)
+        servicio_repo.db.query(ServicioProducto.id)
         .filter(
             ServicioProducto.id.in_(srv_ids),
             ServicioProducto.proveedor_id == proveedor.id,
@@ -102,30 +111,32 @@ def crear_paquete(
         descripcion=datos.descripcion,
         precio_base=datos.precio_base,
     )
-    db.add(paquete)
-    db.flush()
+    repo.db.add(paquete)
+    repo.db.flush()
 
     for detalle in datos.detalles:
-        db.add(DetallePaquete(
+        detalle_repo.db.add(DetallePaquete(
             paquete_id=paquete.id,
             servicio_producto_id=detalle.servicio_producto_id,
             cantidad_incluida=detalle.cantidad_incluida,
         ))
 
-    db.commit()
-    db.refresh(paquete)
+    repo.db.commit()
+    repo.db.refresh(paquete)
     # Re-cargar con joins
-    return obtener_paquete(paquete.id, proveedor, db)
+    return obtener_paquete(paquete.id, proveedor, repo)
 
 
 def actualizar_paquete(
     paquete_id: int,
     datos: ProveedorPaqueteUpdate,
     proveedor: Proveedor,
-    db: Session,
+    repo: PaqueteRepository,
+    detalle_repo: DetallePaqueteRepository,
+    servicio_repo: ServicioProductoRepository,
 ) -> Paquete:
     """Actualiza campos del paquete y opcionalmente reemplaza sus detalles."""
-    paquete = obtener_paquete(paquete_id, proveedor, db)
+    paquete = obtener_paquete(paquete_id, proveedor, repo)
 
     # Actualizar campos simples
     campos_simples = datos.model_dump(exclude_unset=True, exclude={"detalles"})
@@ -140,7 +151,7 @@ def actualizar_paquete(
         # Validar ownership de los nuevos servicios
         srv_ids = [d.servicio_producto_id for d in datos.detalles]
         servicios_propios = (
-            db.query(ServicioProducto.id)
+            servicio_repo.db.query(ServicioProducto.id)
             .filter(
                 ServicioProducto.id.in_(srv_ids),
                 ServicioProducto.proveedor_id == proveedor.id,
@@ -157,20 +168,20 @@ def actualizar_paquete(
             )
 
         # Borrar detalles viejos y crear nuevos
-        db.query(DetallePaquete).filter(DetallePaquete.paquete_id == paquete.id).delete()
+        detalle_repo.db.query(DetallePaquete).filter(DetallePaquete.paquete_id == paquete.id).delete()
         for detalle in datos.detalles:
-            db.add(DetallePaquete(
+            detalle_repo.db.add(DetallePaquete(
                 paquete_id=paquete.id,
                 servicio_producto_id=detalle.servicio_producto_id,
                 cantidad_incluida=detalle.cantidad_incluida,
             ))
 
-    db.commit()
-    return obtener_paquete(paquete.id, proveedor, db)
+    repo.db.commit()
+    return obtener_paquete(paquete.id, proveedor, repo)
 
 
-def eliminar_paquete(paquete_id: int, proveedor: Proveedor, db: Session) -> None:
+def eliminar_paquete(paquete_id: int, proveedor: Proveedor, repo: PaqueteRepository) -> None:
     """Soft delete: marca el paquete como INACTIVO."""
-    paquete = obtener_paquete(paquete_id, proveedor, db)
+    paquete = obtener_paquete(paquete_id, proveedor, repo)
     paquete.estado = EstadoBasico.INACTIVO
-    db.commit()
+    repo.db.commit()
