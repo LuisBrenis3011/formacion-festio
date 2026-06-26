@@ -15,6 +15,7 @@ dist
 build
 .idea
 .vscode
+frontend/
 AGENTS.md
 plan-despliegue.md
 cloudrun.env.yaml
