@@ -223,9 +223,9 @@ gcloud run deploy festio-backend \
 
 Una vez configurado GitHub:
 
-1. Haz push a `main`
-2. GitHub ejecutara `CI`
-3. Si `CI` pasa, se ejecutara `CD Cloud Run`
+1. GitHub ejecutara `CI` en cualquier `push` de rama y en cada `pull request`
+2. `CD Cloud Run` solo desplegara cuando `CI` pase sobre `main`
+3. Si lanzas `CD Cloud Run` manualmente, tambien quedara restringido a `main`
 
 ## 10. Verificaciones Finales
 
