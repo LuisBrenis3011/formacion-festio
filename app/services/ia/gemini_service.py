@@ -1,22 +1,21 @@
-import os
 import asyncio
 from google import genai
 from google.genai import types, errors
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.domain.catalogo.models import Categoria, ServicioProducto, Tematica
 from app.domain.chat.schemas import RecomendacionRequest, GeminiRecomendacionSchema
 
-api_key = os.getenv("GEMINI_API_KEY")
+_client: genai.Client | None = None
 
-if not api_key:
-    raise ValueError(" ¡ALERTA FESTIO! GEMINI_API_KEY no encontrada en el entorno.")
 
-# Inicializamos el cliente pasándole la llave directamente
-client = genai.Client(api_key=api_key)
+def get_gemini_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
 
-for model in client.models.list():
-    print(model.name)
 
 async def parsear_mensaje_cliente(
     mensaje: str,
@@ -91,6 +90,7 @@ async def parsear_mensaje_cliente(
     max_reintentos = 3
     response = None
     modelo_actual = "gemini-2.5-flash"
+    client = get_gemini_client()
     
     for intento in range(max_reintentos):
         try:

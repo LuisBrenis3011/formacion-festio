@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+cloudrun.env.yaml
+cloudrun.env.yml
 *.egg-info/
 .venv/
 venv/
