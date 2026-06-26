@@ -1,13 +1,13 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domain.common.enums import EstadoBasico, TipoItemCatalogo
 
 
 class CategoriaCreate(BaseModel):
-    nombre: str
-    descripcion: Optional[str] = None
+    nombre: str = Field(..., min_length=2, max_length=100)
+    descripcion: Optional[str] = Field(None, max_length=500)
 
 
 class CategoriaOut(BaseModel):
@@ -21,7 +21,7 @@ class CategoriaOut(BaseModel):
 
 class TematicaCreate(BaseModel):
     categoria_id: int
-    nombre: str
+    nombre: str = Field(..., min_length=2, max_length=100)
     imagen_referencial: Optional[str] = None
 
 
@@ -40,19 +40,19 @@ class TematicaOut(BaseModel):
 class ServicioProductoCreate(BaseModel):
     proveedor_id: int
     categoria_id: int
-    nombre: str
+    nombre: str = Field(..., min_length=2, max_length=200)
     tipo: TipoItemCatalogo
     requiere_persona: bool = False
-    precio_unitario: float
-    stock_maximo_simultaneo: Optional[int] = None
-    duracion_base_horas: Optional[float] = None
+    precio_unitario: float = Field(..., ge=0)
+    stock_maximo_simultaneo: Optional[int] = Field(None, ge=0)
+    duracion_base_horas: Optional[float] = Field(None, gt=0)
 
 
 class ServicioProductoUpdate(BaseModel):
-    nombre: Optional[str] = None
-    precio_unitario: Optional[float] = None
-    stock_maximo_simultaneo: Optional[int] = None
-    duracion_base_horas: Optional[float] = None
+    nombre: Optional[str] = Field(None, min_length=2, max_length=200)
+    precio_unitario: Optional[float] = Field(None, ge=0)
+    stock_maximo_simultaneo: Optional[int] = Field(None, ge=0)
+    duracion_base_horas: Optional[float] = Field(None, gt=0)
     estado: Optional[EstadoBasico] = None
 
 
@@ -76,7 +76,7 @@ class ServicioProductoOut(BaseModel):
 
 class DetallePaqueteCreate(BaseModel):
     servicio_producto_id: int
-    cantidad_incluida: int = 1
+    cantidad_incluida: int = Field(1, gt=0)
 
 
 class DetallePaqueteOut(BaseModel):
@@ -96,16 +96,16 @@ class PaqueteCreate(BaseModel):
     proveedor_id: int
     categoria_id: int
     tematica_id: Optional[int] = None
-    nombre: str
-    descripcion: Optional[str] = None
-    precio_base: float
+    nombre: str = Field(..., min_length=2, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio_base: float = Field(..., ge=0)
     detalles: List[DetallePaqueteCreate]
 
 
 class PaqueteUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    precio_base: Optional[float] = None
+    nombre: Optional[str] = Field(None, min_length=2, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio_base: Optional[float] = Field(None, ge=0)
     estado: Optional[EstadoBasico] = None
 
 
@@ -132,22 +132,22 @@ class PaqueteOut(BaseModel):
 class ProveedorServicioCreate(BaseModel):
     """Crear servicio/producto desde el panel del proveedor."""
     categoria_id: int
-    nombre: str
+    nombre: str = Field(..., min_length=2, max_length=200)
     tipo: TipoItemCatalogo
     requiere_persona: bool = False
-    precio_unitario: float
-    stock_maximo_simultaneo: int  # OBLIGATORIO para B2B
-    duracion_base_horas: Optional[float] = None
+    precio_unitario: float = Field(..., ge=0)
+    stock_maximo_simultaneo: int = Field(..., ge=0)  # OBLIGATORIO para B2B
+    duracion_base_horas: Optional[float] = Field(None, gt=0)
 
 
 class ProveedorServicioUpdate(BaseModel):
     """Actualizar servicio propio."""
-    nombre: Optional[str] = None
+    nombre: Optional[str] = Field(None, min_length=2, max_length=200)
     tipo: Optional[TipoItemCatalogo] = None
     requiere_persona: Optional[bool] = None
-    precio_unitario: Optional[float] = None
-    stock_maximo_simultaneo: Optional[int] = None
-    duracion_base_horas: Optional[float] = None
+    precio_unitario: Optional[float] = Field(None, ge=0)
+    stock_maximo_simultaneo: Optional[int] = Field(None, ge=0)
+    duracion_base_horas: Optional[float] = Field(None, gt=0)
     estado: Optional[EstadoBasico] = None
 
 
@@ -155,9 +155,9 @@ class ProveedorPaqueteCreate(BaseModel):
     """Crear paquete desde el panel del proveedor."""
     categoria_id: int
     tematica_id: Optional[int] = None
-    nombre: str
-    descripcion: Optional[str] = None
-    precio_base: float
+    nombre: str = Field(..., min_length=2, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio_base: float = Field(..., ge=0)
     detalles: List[DetallePaqueteCreate]
 
 
@@ -165,8 +165,9 @@ class ProveedorPaqueteUpdate(BaseModel):
     """Actualizar paquete propio."""
     categoria_id: Optional[int] = None
     tematica_id: Optional[int] = None
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    precio_base: Optional[float] = None
+    nombre: Optional[str] = Field(None, min_length=2, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio_base: Optional[float] = Field(None, ge=0)
     estado: Optional[EstadoBasico] = None
     detalles: Optional[List[DetallePaqueteCreate]] = None
+

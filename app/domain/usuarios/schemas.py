@@ -1,18 +1,50 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.domain.common.enums import EstadoBasico, EstadoVerificacion, RolUsuario
 
 
+# ── Validadores reutilizables ─────────────────────────────────────────────────
+
+def _validar_no_vacio(v: str, campo: str) -> str:
+    """Rechaza cadenas que sean solo espacios en blanco."""
+    if not v or not v.strip():
+        raise ValueError(f"{campo} no puede estar vacío")
+    return v.strip()
+
+
+def _validar_telefono(v: Optional[str]) -> Optional[str]:
+    """Teléfono peruano: 9 dígitos, empieza con 9."""
+    if v is None:
+        return v
+    v = v.strip()
+    if v == "":
+        return None
+    import re
+    if not re.match(r"^9\d{8}$", v):
+        raise ValueError("El teléfono debe tener 9 dígitos y empezar con 9 (ej. 987654321)")
+    return v
+
+
 class UsuarioCreate(BaseModel):
-    nombre: str
-    apellido: str
+    nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     telefono: Optional[str] = None
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
     rol: RolUsuario
+
+    @field_validator("nombre", "apellido")
+    @classmethod
+    def nombre_no_vacio(cls, v: str, info) -> str:
+        return _validar_no_vacio(v, info.field_name)
+
+    @field_validator("telefono")
+    @classmethod
+    def telefono_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_telefono(v)
 
 
 class UsuarioOut(BaseModel):
@@ -47,16 +79,26 @@ class TokenResponse(BaseModel):
 
 class RegistroProveedorRequest(BaseModel):
     """Registro de proveedor con datos de empresa incluidos."""
-    nombre: str
-    apellido: str
+    nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     telefono: Optional[str] = None
-    password: str
-    nombre_empresa: str
-    ruc: str
-    distrito: str
-    descripcion: Optional[str] = None
-    capacidad_humana_total: Optional[int] = 0
+    password: str = Field(..., min_length=8, max_length=128)
+    nombre_empresa: str = Field(..., min_length=2, max_length=200)
+    ruc: str = Field(..., pattern=r"^\d{11}$")
+    distrito: str = Field(..., min_length=2, max_length=100)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    capacidad_humana_total: Optional[int] = Field(0, ge=0)
+
+    @field_validator("nombre", "apellido", "nombre_empresa", "distrito")
+    @classmethod
+    def textos_no_vacios(cls, v: str, info) -> str:
+        return _validar_no_vacio(v, info.field_name)
+
+    @field_validator("telefono")
+    @classmethod
+    def telefono_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_telefono(v)
 
 
 # ── Auth: endpoint /me ────────────────────────────────────────────────────────
@@ -79,7 +121,7 @@ class MeResponse(BaseModel):
 
 class ClienteCreate(BaseModel):
     usuario_id: int
-    direccion: Optional[str] = None
+    direccion: Optional[str] = Field(None, max_length=300)
 
 
 class ClienteOut(BaseModel):
@@ -95,18 +137,23 @@ class ClienteOut(BaseModel):
 
 class ProveedorCreate(BaseModel):
     usuario_id: int
-    nombre_empresa: str
-    ruc: str
-    descripcion: Optional[str] = None
-    distrito: str
-    capacidad_humana_total: Optional[int] = 0
+    nombre_empresa: str = Field(..., min_length=2, max_length=200)
+    ruc: str = Field(..., pattern=r"^\d{11}$")
+    descripcion: Optional[str] = Field(None, max_length=500)
+    distrito: str = Field(..., min_length=2, max_length=100)
+    capacidad_humana_total: Optional[int] = Field(0, ge=0)
+
+    @field_validator("nombre_empresa", "distrito")
+    @classmethod
+    def textos_no_vacios(cls, v: str, info) -> str:
+        return _validar_no_vacio(v, info.field_name)
 
 
 class ProveedorUpdate(BaseModel):
-    nombre_empresa: Optional[str] = None
-    descripcion: Optional[str] = None
-    distrito: Optional[str] = None
-    capacidad_humana_total: Optional[int] = None
+    nombre_empresa: Optional[str] = Field(None, min_length=2, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    distrito: Optional[str] = Field(None, min_length=2, max_length=100)
+    capacidad_humana_total: Optional[int] = Field(None, ge=0)
 
 
 class ProveedorOut(BaseModel):
