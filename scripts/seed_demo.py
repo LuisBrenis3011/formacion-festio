@@ -10,7 +10,7 @@ import app.domain.all_models  # noqa: F401
 from app.core.security import hash_password
 from app.database import SessionLocal
 from app.domain.catalogo.models import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica
-from app.domain.common.enums import EstadoBasico, EstadoVerificacion, RolUsuario
+from app.domain.common.enums import EstadoBasico, EstadoVerificacion, RolUsuario, TipoItemCatalogo
 from app.domain.usuarios.models import Proveedor, Usuario
 
 
@@ -36,13 +36,13 @@ def main() -> None:
         hz = proveedor(db, "HZ Producciones", "hz@festio.local", "San Miguel", 18)
 
         eym_servicios = [
-            servicio(db, eym, categorias["Sonido y DJ"], "DJ animador EyM", "SERVICIO_HUMANO", True, 120, 3, 4),
-            servicio(db, eym, categorias["Show infantil"], "Animadora infantil EyM", "SERVICIO_HUMANO", True, 90, 5, 4),
-            servicio(db, eym, categorias["Hora loca"], "Bailarina hora loca EyM", "SERVICIO_HUMANO", True, 70, 20, 2),
-            servicio(db, eym, categorias["Show infantil"], "Muñeco Spiderman EyM", "PRODUCTO_FISICO", False, 180, 2, None),
-            servicio(db, eym, categorias["Show infantil"], "Muñeco Frozen EyM", "PRODUCTO_FISICO", False, 180, 1, None),
-            servicio(db, eym, categorias["Mobiliario"], "Silla blanca plegable EyM", "PRODUCTO_FISICO", False, 3, 80, None),
-            servicio(db, eym, categorias["Mobiliario"], "Toldo 4x4 EyM", "PRODUCTO_FISICO", False, 150, 4, None),
+            servicio(db, eym, categorias["Sonido y DJ"], "DJ animador EyM", TipoItemCatalogo.SERVICIO, True, 120, 3, 4),
+            servicio(db, eym, categorias["Show infantil"], "Animadora infantil EyM", TipoItemCatalogo.SERVICIO, True, 90, 5, 4),
+            servicio(db, eym, categorias["Hora loca"], "Bailarina hora loca EyM", TipoItemCatalogo.SERVICIO, True, 70, 20, 2),
+            servicio(db, eym, categorias["Show infantil"], "Muñeco Spiderman EyM", TipoItemCatalogo.PRODUCTO, False, 180, 2, None),
+            servicio(db, eym, categorias["Show infantil"], "Muñeco Frozen EyM", TipoItemCatalogo.PRODUCTO, False, 180, 1, None),
+            servicio(db, eym, categorias["Mobiliario"], "Silla blanca plegable EyM", TipoItemCatalogo.PRODUCTO, False, 3, 80, None),
+            servicio(db, eym, categorias["Mobiliario"], "Toldo 4x4 EyM", TipoItemCatalogo.PRODUCTO, False, 150, 4, None),
         ]
         paquete(
             db,
@@ -55,11 +55,11 @@ def main() -> None:
         )
 
         rayza_servicios = [
-            servicio(db, rayza, categorias["Sonido y DJ"], "DJ Rayza", "SERVICIO_HUMANO", True, 100, 2, 4),
-            servicio(db, rayza, categorias["Show infantil"], "Animadora Rayza", "SERVICIO_HUMANO", True, 85, 4, 4),
-            servicio(db, rayza, categorias["Hora loca"], "Bailarina Rayza", "SERVICIO_HUMANO", True, 65, 12, 2),
-            servicio(db, rayza, categorias["Show infantil"], "Muñeco Spiderman Rayza", "PRODUCTO_FISICO", False, 170, 1, None),
-            servicio(db, rayza, categorias["Show infantil"], "Payaso infantil Rayza", "SERVICIO_HUMANO", True, 120, 2, 3),
+            servicio(db, rayza, categorias["Sonido y DJ"], "DJ Rayza", TipoItemCatalogo.SERVICIO, True, 100, 2, 4),
+            servicio(db, rayza, categorias["Show infantil"], "Animadora Rayza", TipoItemCatalogo.SERVICIO, True, 85, 4, 4),
+            servicio(db, rayza, categorias["Hora loca"], "Bailarina Rayza", TipoItemCatalogo.SERVICIO, True, 65, 12, 2),
+            servicio(db, rayza, categorias["Show infantil"], "Muñeco Spiderman Rayza", TipoItemCatalogo.PRODUCTO, False, 170, 1, None),
+            servicio(db, rayza, categorias["Show infantil"], "Payaso infantil Rayza", TipoItemCatalogo.SERVICIO, True, 120, 2, 3),
         ]
         paquete(
             db,
@@ -72,11 +72,11 @@ def main() -> None:
         )
 
         hz_servicios = [
-            servicio(db, hz, categorias["Sonido y DJ"], "DJ premium HZ", "SERVICIO_HUMANO", True, 150, 2, 4),
-            servicio(db, hz, categorias["Hora loca"], "Bailarín hora loca HZ", "SERVICIO_HUMANO", True, 75, 10, 2),
-            servicio(db, hz, categorias["Mobiliario"], "Silla Tiffany HZ", "PRODUCTO_FISICO", False, 6, 120, None),
-            servicio(db, hz, categorias["Mobiliario"], "Toldo elegante HZ", "PRODUCTO_FISICO", False, 220, 5, None),
-            servicio(db, hz, categorias["Hora loca"], "Disfraz hora loca HZ", "PRODUCTO_FISICO", False, 55, 25, None),
+            servicio(db, hz, categorias["Sonido y DJ"], "DJ premium HZ", TipoItemCatalogo.SERVICIO, True, 150, 2, 4),
+            servicio(db, hz, categorias["Hora loca"], "Bailarín hora loca HZ", TipoItemCatalogo.SERVICIO, True, 75, 10, 2),
+            servicio(db, hz, categorias["Mobiliario"], "Silla Tiffany HZ", TipoItemCatalogo.PRODUCTO, False, 6, 120, None),
+            servicio(db, hz, categorias["Mobiliario"], "Toldo elegante HZ", TipoItemCatalogo.PRODUCTO, False, 220, 5, None),
+            servicio(db, hz, categorias["Hora loca"], "Disfraz hora loca HZ", TipoItemCatalogo.PRODUCTO, False, 55, 25, None),
         ]
         paquete(
             db,
@@ -137,7 +137,6 @@ def proveedor(db, nombre_empresa: str, email: str, distrito: str, capacidad: int
     if not obj:
         obj = Proveedor(usuario_id=usuario.id)
         db.add(obj)
-        db.flush()
 
     obj.nombre_empresa = nombre_empresa
     obj.ruc = f"20{usuario.id:09d}"
@@ -146,6 +145,7 @@ def proveedor(db, nombre_empresa: str, email: str, distrito: str, capacidad: int
     obj.calificacion_promedio = Decimal("4.50")
     obj.estado_verificacion = EstadoVerificacion.VERIFICADO
     obj.capacidad_humana_total = capacidad
+    db.flush()
     return obj
 
 
@@ -154,7 +154,7 @@ def servicio(
     prov: Proveedor,
     cat: Categoria,
     nombre: str,
-    tipo: str,
+    tipo: TipoItemCatalogo,
     requiere_persona: bool,
     precio: float,
     stock: int,
@@ -167,7 +167,6 @@ def servicio(
     if not obj:
         obj = ServicioProducto(proveedor_id=prov.id, nombre=nombre)
         db.add(obj)
-        db.flush()
 
     obj.categoria_id = cat.id
     obj.tipo = tipo
@@ -175,8 +174,9 @@ def servicio(
     obj.precio_unitario = Decimal(str(precio))
     obj.stock_maximo_simultaneo = stock
     obj.duracion_base_horas = Decimal(str(horas)) if horas is not None else None
-    obj.estado = "ACTIVO"
+    obj.estado = EstadoBasico.ACTIVO
     obj.deleted_at = None
+    db.flush()
     return obj
 
 
@@ -196,13 +196,13 @@ def paquete(
     if not obj:
         obj = Paquete(proveedor_id=prov.id, nombre=nombre)
         db.add(obj)
-        db.flush()
 
     obj.categoria_id = cat.id
     obj.tematica_id = None
     obj.descripcion = descripcion
     obj.precio_base = Decimal(str(precio))
     obj.estado = EstadoBasico.ACTIVO
+    db.flush()
 
     for serv, cantidad in detalles:
         det = db.query(DetallePaquete).filter(
