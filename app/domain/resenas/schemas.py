@@ -8,7 +8,7 @@ class ResenaPublicaCreate(BaseModel):
     """Schema para crear una reseña pública (sin reserva asociada)."""
     proveedor_id: int
     calificacion: int = Field(ge=1, le=5)
-    comentario: Optional[str] = None
+    comentario: Optional[str] = Field(None, max_length=500)
 
 
 class ResenaPublicaOut(BaseModel):

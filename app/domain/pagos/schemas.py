@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domain.common.enums import (
     CanalNotificacion,
@@ -17,7 +17,7 @@ from app.domain.common.enums import (
 class PagoCreate(BaseModel):
     reserva_id: int
     tipo_pago: TipoPago
-    monto: float
+    monto: float = Field(..., gt=0)
     metodo_pago: MetodoPago
     codigo_transaccion: Optional[str] = None
 
@@ -53,8 +53,8 @@ class ResenaCreate(BaseModel):
     reserva_id: int
     cliente_id: int
     proveedor_id: int
-    calificacion: int
-    comentario: Optional[str] = None
+    calificacion: int = Field(..., ge=1, le=5)
+    comentario: Optional[str] = Field(None, max_length=500)
 
 
 class ResenaOut(BaseModel):
@@ -74,7 +74,7 @@ class NotificacionCreate(BaseModel):
     usuario_id: int
     reserva_id: Optional[int] = None
     tipo: TipoNotificacion
-    mensaje: str
+    mensaje: str = Field(..., min_length=1, max_length=500)
     canal: CanalNotificacion
 
 
@@ -90,3 +90,4 @@ class NotificacionOut(BaseModel):
 
     class Config:
         from_attributes = True
+

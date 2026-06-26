@@ -35,8 +35,6 @@ def prebloquear_reserva(
     ocupacion_sp_repo: OcupacionServicioProductoRepository,
     ocupacion_global_repo: OcupacionGlobalProveedorRepository
 ) -> PreReservaResponse:
-    if datos.fecha_evento_fin <= datos.fecha_evento_inicio:
-        raise HTTPException(status_code=400, detail="La hora de fin debe ser posterior al inicio")
 
     proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
