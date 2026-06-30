@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings
 
-
 LOCAL_CORS_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -12,7 +11,6 @@ LOCAL_CORS_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
-
 class Settings(BaseSettings):
     APP_NAME: str = "Festio"
     DEBUG: bool = True
@@ -22,6 +20,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     GEMINI_API_KEY: str
+    
+    # ─── MERCADO PAGO ──────────────────────────────────────────────────
+    MERCADOPAGO_ACCESS_TOKEN: str
+    MERCADOPAGO_PUBLIC_KEY: str | None = None
+    # ───────────────────────────────────────────────────────────────────
+    
     CORS_ALLOW_ORIGINS: str = ",".join(LOCAL_CORS_ORIGINS)
     CORS_ALLOW_ORIGIN_REGEX: str | None = r"^http://(localhost|127\.0\.0\.1):\d+$"
 

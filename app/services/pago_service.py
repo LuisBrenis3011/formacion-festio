@@ -6,6 +6,7 @@ from app.domain.pagos.models    import PagoTransaccion, Comprobante
 from app.domain.reservas.models import Reserva, Evento
 from app.domain.usuarios.models import Cliente, Proveedor
 from app.domain.pagos.schemas   import PagoCreate
+from app.services.mercadopago_service import mp_client
 
 
 def procesar_pago(datos: PagoCreate, db: Session) -> PagoTransaccion:
@@ -162,3 +163,74 @@ def emitir_comprobante(
     db.refresh(comprobante)
     return comprobante
 
+
+def iniciar_pago_mercadopago(
+    datos: PagoCreate, 
+    email_cliente: str, 
+    titulo_evento: str, 
+    reserva_temp_id: str, 
+    db: Session
+) -> str:
+    """
+    1. Registra el pago en estado PENDIENTE en BD.
+    2. Solicita el link de pago a Mercado Pago.
+    """
+    # 1. Usamos tu función existente para guardar en BD (estado PENDIENTE)
+    pago = procesar_pago(datos, db)
+    
+    # 2. Generamos el link de pago
+    try:
+        url_pago = mp_client.generar_preferencia(
+            pago_id=pago.id,
+            monto=pago.monto,
+            titulo_evento=titulo_evento,
+            email_cliente=email_cliente,
+            reserva_temp_id=reserva_temp_id
+        )
+        return url_pago
+    except Exception as e:
+        # Si Mercado Pago falla, rechazamos el pago internamente para mantener consistencia
+        rechazar_pago(pago_id=pago.id, db=db)
+        raise HTTPException(status_code=502, detail="Error al generar pasarela de pago")
+
+
+def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
+    """
+    Lee la notificación de Mercado Pago y orquesta la aprobación o rechazo.
+    """
+    # Mercado Pago envía notificaciones de varios tipos, nos interesan los 'payment'
+    if datos_webhook.get("type") == "payment" or "data" in datos_webhook:
+        # En un flujo real, aquí harías un GET a la API de MP para verificar el estado
+        # del pago usando el ID que viene en el webhook para evitar falsificaciones.
+        
+        # Simulación de datos extraídos del webhook verificado:
+        pago_id_str = datos_webhook.get("external_reference")
+        estado_mp = datos_webhook.get("status") # ej: "approved", "rejected"
+        codigo_transaccion = str(datos_webhook.get("id"))
+        
+        # Extraemos el metadata que enviamos previamente
+        metadata = datos_webhook.get("metadata", {})
+        reserva_temp_id = metadata.get("reserva_temp_id")
+
+        if not pago_id_str or not reserva_temp_id:
+            return # Falta información crítica
+            
+        pago_id = int(pago_id_str)
+
+        if estado_mp == "approved":
+            # Llamamos a tu función orquestadora existente
+            aprobar_pago_completo(
+                pago_id=pago_id,
+                reserva_temp_id=reserva_temp_id,
+                codigo_transaccion=codigo_transaccion,
+                db=db
+            )
+        elif estado_mp in ["rejected", "cancelled"]:
+            pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
+            if pago:
+                rechazar_pago_completo(
+                    pago_id=pago_id, 
+                    usuario_id=pago.reserva.evento.cliente.usuario_id, # Asumiendo relaciones
+                    reserva_id=pago.reserva_id, 
+                    db=db
+                )
