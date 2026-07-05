@@ -2,7 +2,8 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import require_role
+from app.domain.common.enums import RolUsuario
 from app.domain.personal.schemas import PersonalCreate, PersonalUpdate, PersonalOut
 from app.repositories.personal_repository import (
     PersonalRepository,
@@ -31,7 +32,7 @@ def crear_personal(
     datos: PersonalCreate,
     repo: PersonalRepository = Depends(get_personal_repo),
     rol_repo: PersonalRolRepository = Depends(get_personal_rol_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     """Crea una persona con sus roles asociados."""
     return personal_service.crear_personal(datos, repo, rol_repo)
@@ -42,7 +43,7 @@ def actualizar_personal(
     personal_id: int,
     datos: PersonalUpdate,
     repo: PersonalRepository = Depends(get_personal_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     """Actualiza datos base del personal (no roles por ahora)."""
     return personal_service.actualizar_personal(personal_id, datos, repo)
@@ -52,7 +53,7 @@ def actualizar_personal(
 def eliminar_personal(
     personal_id: int,
     repo: PersonalRepository = Depends(get_personal_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     """Soft delete del personal."""
     personal_service.eliminar_personal(personal_id, repo)

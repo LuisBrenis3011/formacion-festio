@@ -18,11 +18,10 @@ router = APIRouter()
 def registrar(
     datos: UsuarioCreate,
     usuario_repo: UsuarioRepository = Depends(get_usuario_repo),
-    cliente_repo: ClienteRepository = Depends(get_cliente_repo),
-    proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo)
+    cliente_repo: ClienteRepository = Depends(get_cliente_repo)
 ):
-    """Registra un nuevo usuario (cliente o proveedor)."""
-    return auth_service.registrar_usuario(datos, usuario_repo, cliente_repo, proveedor_repo)
+    """Registra un nuevo cliente desde el flujo publico."""
+    return auth_service.registrar_usuario(datos, usuario_repo, cliente_repo)
 
 
 @router.post("/registro-proveedor", response_model=TokenResponse, status_code=201)
