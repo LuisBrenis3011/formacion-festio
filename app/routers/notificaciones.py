@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
 from app.domain.pagos.schemas import NotificacionOut
@@ -13,11 +13,12 @@ router = APIRouter()
 @router.get("/usuario/{usuario_id}", response_model=List[NotificacionOut])
 def notificaciones_usuario(
     usuario_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     repo: NotificacionRepository = Depends(get_notificacion_repo),
-    _: int = Depends(get_current_user)
+    _: int = Depends(get_current_user),
 ):
-    """Lista todas las notificaciones de un usuario ordenadas por fecha."""
-    return notificacion_service.listar_notificaciones_usuario(usuario_id, repo)
+    return notificacion_service.listar_notificaciones_usuario(usuario_id, repo, skip=skip, limit=limit)
 
 
 @router.patch("/{notificacion_id}/leer", status_code=200)

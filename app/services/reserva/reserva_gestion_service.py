@@ -45,6 +45,8 @@ def listar_mis_reservas(
     proveedor_repo: ProveedorRepository,
     paquete_repo: PaqueteRepository,
     servicio_repo: ServicioProductoRepository,
+    skip: int = 0,
+    limit: int = 100,
 ) -> List[MisReservasItemOut]:
     """Devuelve todas las reservas del cliente autenticado, con detalles del evento y proveedor."""
     cliente = cliente_repo.db.query(Cliente).filter(Cliente.usuario_id == usuario.id).first()
@@ -60,6 +62,8 @@ def listar_mis_reservas(
         reserva_repo.db.query(Reserva)
         .filter(Reserva.evento_id.in_(evento_ids), Reserva.deleted_at.is_(None))
         .order_by(Reserva.fecha_creacion.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 

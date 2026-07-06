@@ -18,6 +18,5 @@ def obtener_evento(evento_id: int, evento_repo: EventoRepository) -> Evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
     return evento
 
-def eventos_por_cliente(cliente_id: int, evento_repo: EventoRepository) -> List[Evento]:
-    """Historial de eventos de un cliente."""
-    return evento_repo.db.query(Evento).filter(Evento.cliente_id == cliente_id).all()
+def eventos_por_cliente(cliente_id: int, evento_repo: EventoRepository, skip: int = 0, limit: int = 100) -> List[Evento]:
+    return evento_repo.db.query(Evento).filter(Evento.cliente_id == cliente_id).offset(skip).limit(limit).all()

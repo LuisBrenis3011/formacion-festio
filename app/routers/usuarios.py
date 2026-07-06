@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
 from app.domain.usuarios.schemas import UsuarioOut
@@ -12,10 +12,12 @@ router = APIRouter()
 
 @router.get("/", response_model=List[UsuarioOut])
 def listar_usuarios(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     repo: UsuarioRepository = Depends(get_usuario_repo),
-    _: int = Depends(get_current_user)
+    _: int = Depends(get_current_user),
 ):
-    return usuario_service.listar_usuarios(repo)
+    return usuario_service.listar_usuarios(repo, skip=skip, limit=limit)
 
 
 @router.get("/{usuario_id}", response_model=UsuarioOut)

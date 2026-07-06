@@ -4,8 +4,8 @@ from app.domain.usuarios.models import Cliente
 from app.domain.usuarios.schemas import ClienteCreate
 from app.repositories.usuario_repository import ClienteRepository
 
-def listar_clientes(repo: ClienteRepository) -> List[Cliente]:
-    return repo.get_all()
+def listar_clientes(repo: ClienteRepository, skip: int = 0, limit: int = 100) -> List[Cliente]:
+    return repo.get_all(skip=skip, limit=limit)
 
 def obtener_cliente(cliente_id: int, repo: ClienteRepository) -> Cliente:
     cliente = repo.get(cliente_id)

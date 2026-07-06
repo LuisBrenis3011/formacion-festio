@@ -13,14 +13,13 @@ from app.repositories.catalogo_repository import ServicioProductoRepository, Paq
 from app.repositories.reserva_repository import ReservaRepository
 
 
-def listar_proveedores(distrito: Optional[str], repo: ProveedorRepository) -> List[Proveedor]:
-    """Lista proveedores verificados. Filtra por distrito si se indica."""
+def listar_proveedores(distrito: Optional[str], repo: ProveedorRepository, skip: int = 0, limit: int = 100) -> List[Proveedor]:
     query = repo.db.query(Proveedor).filter(
         Proveedor.estado_verificacion == EstadoVerificacion.VERIFICADO
     )
     if distrito:
         query = query.filter(Proveedor.distrito.ilike(f"%{distrito}%"))
-    return query.all()
+    return query.offset(skip).limit(limit).all()
 
 
 def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository) -> Proveedor:
