@@ -10,12 +10,11 @@ Imports y fixtures verificados contra:
 - app/domain/usuarios/models.py (Usuario, Cliente, Proveedor)
 - app/domain/common/enums.py (RolUsuario, EstadoBasico, EstadoVerificacion)
 
-⚠️ Único punto aún no confirmado: si `app/redis_client.py` expone el
-objeto `redis_client` a nivel de módulo (para que el monkeypatch de
-`mock_redis` funcione). Si algún servicio hace
-`from app.redis_client import redis_client` de forma directa en vez de
-`import app.redis_client as redis_client_module`, ese servicio no
-quedará mockeado con este fixture — habría que ajustarlo puntualmente.
+- app/services/bloqueo_service.py (crear_bloqueo, obtener_bloqueo, liberar_bloqueo, listar_bloqueos)
+
+✅ Ya corregido: bloqueo_service.py hace `from app.redis_client import
+redis_client` (import directo), así que el mock parchea esa referencia
+puntual además del módulo app.redis_client. Ver fixture mock_redis.
 """
 
 import pytest
@@ -23,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from unittest.mock import MagicMock
+import fnmatch
 
 from app.main import app
 from app.database import Base, get_db
@@ -32,6 +31,11 @@ from app.database import Base, get_db
 # a nivel de módulo (from app import redis_client as redis_client_module,
 # y luego redis_client_module.redis_client)
 from app import redis_client as redis_client_module
+
+# bloqueo_service.py hace `from app.redis_client import redis_client` (import
+# directo del objeto), así que además de parchear el módulo hay que parchear
+# también la referencia ya capturada dentro de ese servicio.
+from app.services import bloqueo_service
 
 from app.domain.usuarios.models import Usuario, Cliente, Proveedor
 from app.domain.common.enums import RolUsuario, EstadoBasico, EstadoVerificacion
@@ -86,18 +90,60 @@ def client(db_session):
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="function", autouse=True)
 def mock_redis(monkeypatch):
-    fake_redis = MagicMock()
-    fake_redis.get.return_value = None
-    fake_redis.set.return_value = True
-    fake_redis.setex.return_value = True
-    fake_redis.delete.return_value = 1  # redis-py real devuelve un int, no bool
-    fake_redis.exists.return_value = False
+    """
+    Fake de Redis CON ESTADO (no un MagicMock plano), porque los tests de
+    checkout necesitan que crear_bloqueo() -> obtener_bloqueo() -> liberar_bloqueo()
+    funcionen como un round-trip real dentro del mismo test.
 
-    # Si en tu código haces `from app.redis_client import redis_client`
-    # (import directo del objeto, no del módulo) este monkeypatch no basta:
-    # habría que mockear en cada archivo que hace ese import directo, o
-    # cambiar esos imports a `import app.redis_client as redis_client_module`.
+    Cubre los métodos más comunes de redis-py. Cualquier método no definido
+    explícitamente cae en __getattr__ y devuelve un MagicMock inofensivo, para
+    no romper si algún servicio llama algo que no anticipamos aquí.
+    """
+    import fnmatch
+    from unittest.mock import MagicMock as _MagicMock
+
+    class FakeRedis:
+        def __init__(self):
+            self._store: dict = {}
+
+        def get(self, key):
+            return self._store.get(key)
+
+        def set(self, key, value, *args, **kwargs):
+            self._store[key] = value
+            return True
+
+        def setex(self, name, time, value):
+            self._store[name] = value
+            return True
+
+        def delete(self, *keys):
+            borrados = 0
+            for k in keys:
+                if k in self._store:
+                    del self._store[k]
+                    borrados += 1
+            return borrados
+
+        def exists(self, key):
+            return 1 if key in self._store else 0
+
+        def keys(self, pattern="*"):
+            return [k for k in self._store if fnmatch.fnmatch(k, pattern)]
+
+        def scan_iter(self, match="*", **kwargs):
+            return iter(self.keys(match))
+
+        def __getattr__(self, name):
+            return _MagicMock()
+
+    fake_redis = FakeRedis()
+
+    # Parcheamos AMBAS referencias: el módulo (por si algo hace
+    # `import app.redis_client as x` y usa `x.redis_client`) y la copia
+    # directa que bloqueo_service.py capturó con `from ... import redis_client`.
     monkeypatch.setattr(redis_client_module, "redis_client", fake_redis)
+    monkeypatch.setattr(bloqueo_service, "redis_client", fake_redis)
     return fake_redis
 
 
