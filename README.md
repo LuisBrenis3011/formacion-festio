@@ -96,3 +96,10 @@ Una vez que el backend esté en ejecución, puedes consultar la documentación i
 
 - Asegúrate de que tanto el backend como el frontend estén corriendo simultáneamente en terminales separadas para que la aplicación funcione correctamente.
 - Si utilizas VS Code, asegúrate de seleccionar el intérprete de Python correcto (el que se encuentra dentro de la carpeta `venv`).
+
+---
+
+## Despliegue Del Backend En GCP
+
+- La configuración base para `Cloud Run` está documentada en `deploy-cloud-run.md`.
+- Usa `cloudrun.env.example.yaml` como plantilla para crear tu `cloudrun.env.yaml` local con variables reales.

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import app.domain.all_models  # noqa: F401
 from app.core.security import hash_password
 from app.database import SessionLocal
 from app.domain.catalogo.models import Categoria, DetallePaquete, Paquete, ServicioProducto, Tematica

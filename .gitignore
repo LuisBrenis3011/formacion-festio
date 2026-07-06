@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+cloudrun.env.yaml
+cloudrun.env.yml
 *.egg-info/
 .venv/
 venv/
@@ -11,7 +13,10 @@ build/
 .vscode/
 *.db
 *.sqlite3
+frontend/
 
 AGENTS.md
 plan-despliegue.md
+configurar-payment-webhook-secret.md
 
+Tareas-festio.md

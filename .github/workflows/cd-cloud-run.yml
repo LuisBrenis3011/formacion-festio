@@ -1,0 +1,84 @@
+name: CD Cloud Run
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO }}/festio-backend:${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Generate runtime env file
+        run: |
+          cat > cloudrun.deploy.env.yaml <<EOF
+          APP_NAME: "Festio"
+          DEBUG: "False"
+          ALGORITHM: "HS256"
+          ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+          CORS_ALLOW_ORIGINS: "${{ vars.CORS_ALLOW_ORIGINS }}"
+          CORS_ALLOW_ORIGIN_REGEX: "${{ vars.CORS_ALLOW_ORIGIN_REGEX }}"
+          EOF
+
+      - name: Deploy Cloud Run
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ vars.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --service-account "${{ vars.CLOUD_RUN_RUNTIME_SA }}" \
+            --memory "${{ vars.CLOUD_RUN_MEMORY }}" \
+            --cpu "${{ vars.CLOUD_RUN_CPU }}" \
+            --min-instances "${{ vars.CLOUD_RUN_MIN_INSTANCES }}" \
+            --max-instances "${{ vars.CLOUD_RUN_MAX_INSTANCES }}" \
+            --port 8080 \
+            --env-vars-file cloudrun.deploy.env.yaml \
+            --set-secrets DATABASE_URL=festio-database-url:latest,REDIS_URL=festio-redis-url:latest,SECRET_KEY=festio-secret-key:latest,GEMINI_API_KEY=festio-gemini-api-key:latest,PAYMENT_WEBHOOK_SECRET=PAYMENT_WEBHOOK_SECRET:latest
+
+      - name: Smoke check
+        run: |
+          SERVICE_URL="$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" --region "${{ vars.GCP_REGION }}" --format='value(status.url)')"
+          curl --fail "$SERVICE_URL/"
+          curl --fail "$SERVICE_URL/docs"
