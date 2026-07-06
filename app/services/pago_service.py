@@ -63,6 +63,8 @@ def aprobar_pago_completo(
     from app.repositories.catalogo_repository import ServicioProductoRepository
     from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
 
+    from app.repositories.notificacion_repository import NotificacionRepository
+    
     # 1. Aprobar el pago
     pago = aprobar_pago(pago_id, codigo_transaccion, db)
 
@@ -91,11 +93,13 @@ def aprobar_pago_completo(
     cliente   = db.query(Cliente).filter(Cliente.id == evento.cliente_id).first()
     proveedor = db.query(Proveedor).filter(Proveedor.id == reserva.proveedor_id).first()
 
+    repo_notificacion = NotificacionRepository(db)
+
     notificacion_service.notificar_confirmacion_reserva(
         usuario_cliente_id=cliente.usuario_id,
         usuario_proveedor_id=proveedor.usuario_id,
         reserva_id=reserva.id,
-        db=db,
+        repo=repo_notificacion,
     )
 
     return pago
@@ -119,8 +123,18 @@ def rechazar_pago_completo(
     """Marca el pago como rechazado y notifica al cliente."""
     from app.services import notificacion_service
 
+    from app.repositories.notificacion_repository import ( NotificacionRepository )
+    
     rechazar_pago(pago_id, db)
-    notificacion_service.notificar_fallo_pago(usuario_id, reserva_id, db)
+
+    repo_notificacion = NotificacionRepository(db)
+
+    notificacion_service.notificar_fallo_pago(
+        usuario_id,
+        reserva_id,
+        repo_notificacion
+    )
+    
     return {"mensaje": "Pago rechazado. El cliente puede reintentar."}
 
 

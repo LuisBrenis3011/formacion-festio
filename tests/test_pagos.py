@@ -124,12 +124,12 @@ def test_comprobante_reserva_sin_pago_retorna_404(client):
 # POST /api/pagos/{pago_id}/rechazar
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="TASK-BIZ-05: notificacion_service.notificar_fallo_pago recibe un "
-    "Session donde espera un NotificacionRepository -> AttributeError "
-    "'Session' object has no attribute 'db' en notificacion_service.py:37",
-    strict=True,
-)
+# @pytest.mark.xfail(
+#    reason="TASK-BIZ-05: notificacion_service.notificar_fallo_pago recibe un "
+#    "Session donde espera un NotificacionRepository -> AttributeError "
+#    "'Session' object has no attribute 'db' en notificacion_service.py:37",
+#    strict=True,
+#)
 def test_rechazar_pago_y_notificacion(
     client, db_session, usuario_cliente, usuario_proveedor, auth_headers_cliente
 ):
@@ -160,9 +160,20 @@ def test_rechazar_pago_y_notificacion(
     assert registro.status_code == 201, registro.text
     pago_id = registro.json()["id"]
 
+    from app.config import settings
+
+    headers = {
+        **auth_headers_cliente,
+        "X-Webhook-Secret": settings.PAYMENT_WEBHOOK_SECRET,
+    }
+
     response = client.post(
         f"{PAGOS_PREFIX}/{pago_id}/rechazar",
-        params={"usuario_id": usuario_cliente.id, "reserva_id": reserva.id},
+        params={
+            "usuario_id": usuario_cliente.id,
+            "reserva_id": reserva.id
+        },
+        headers=headers,
     )
 
     assert response.status_code == 200
