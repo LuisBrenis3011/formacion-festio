@@ -1,12 +1,23 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.domain.pagos.schemas import PagoCreate, PagoOut, ComprobanteOut
 from app.services import pago_service
 
 router = APIRouter()
+
+
+def require_payment_webhook_secret(
+    x_webhook_secret: str | None = Header(default=None, alias="X-Webhook-Secret"),
+):
+    if x_webhook_secret != settings.PAYMENT_WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook secret",
+        )
 
 
 @router.post("/", response_model=PagoOut, status_code=201)
@@ -24,6 +35,7 @@ def aprobar_pago(
     pago_id: int,
     reserva_temp_id: str,
     codigo_transaccion: str,
+    _: None = Depends(require_payment_webhook_secret),
     db: Session = Depends(get_db)
 ):
     """
@@ -43,6 +55,7 @@ def rechazar_pago(
     pago_id: int,
     usuario_id: int,
     reserva_id: int,
+    _: None = Depends(require_payment_webhook_secret),
     db: Session = Depends(get_db)
 ):
     """Marca el pago como rechazado y notifica al cliente."""
