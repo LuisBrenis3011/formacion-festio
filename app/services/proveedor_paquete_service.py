@@ -19,6 +19,7 @@ from app.repositories.catalogo_repository import (
     TematicaRepository, ServicioProductoRepository
 )
 
+from datetime import datetime, UTC
 
 def listar_paquetes(proveedor: Proveedor, repo: PaqueteRepository) -> List[Paquete]:
     """Lista paquetes del proveedor con detalles cargados."""
@@ -184,4 +185,5 @@ def eliminar_paquete(paquete_id: int, proveedor: Proveedor, repo: PaqueteReposit
     """Soft delete: marca el paquete como INACTIVO."""
     paquete = obtener_paquete(paquete_id, proveedor, repo)
     paquete.estado = EstadoBasico.INACTIVO
+    paquete.deleted_at = datetime.now(UTC)
     repo.db.commit()

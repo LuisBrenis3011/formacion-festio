@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
 
 from app.domain.common.enums import EstadoReserva
+
+from app.domain.common.enums import MetodoPago
 
 
 # ── Validadores de fecha ──────────────────────────────────────────────────────
@@ -241,3 +243,33 @@ class MisReservasItemOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CompletarReservaRequest(BaseModel):
+    metodo_pago: MetodoPago = MetodoPago.EFECTIVO
+    codigo_transaccion: Optional[str] = Field(None, max_length=150)
+
+
+class CompletarReservaResponse(BaseModel):
+    reserva_id: int
+    estado: str
+    pago_id: int
+    monto_pagado: float
+    mensaje: str
+
+
+class ProveedorReservaItemOut(BaseModel):
+    reserva_id: int
+    estado: str
+    nombre_evento: str
+    tipo_evento: Optional[str] = None
+    fecha_evento_inicio: datetime
+    fecha_evento_fin: datetime
+    direccion: str
+    nombre_cliente: str
+    monto_total: float
+    monto_adelanto: float
+    monto_pendiente: float
+    fecha_creacion: datetime
+    detalles: List[MisReservasDetalleOut]
+
+    model_config = ConfigDict(from_attributes=True)

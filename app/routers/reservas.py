@@ -24,6 +24,10 @@ from app.repositories.disponibilidad_repository import get_ocupacion_servicio_pr
 
 router = APIRouter()
 
+from app.core.dependencies import get_current_user, get_optional_current_user, get_current_proveedor
+from app.domain.usuarios.models import Usuario, Proveedor
+from app.domain.reservas.schemas import CompletarReservaRequest, CompletarReservaResponse
+from app.repositories.pago_repository import get_pago_transaccion_repo
 
 # ── Eventos ───────────────────────────────────────────────────────────────────
 
@@ -165,3 +169,16 @@ def cancelar_reserva(
 ):
     """Cancela una reserva confirmada (soft delete)."""
     return reserva_gestion_service.cancelar_reserva(reserva_id, reserva_repo)
+
+@router.patch("/{reserva_id}/completar", response_model=CompletarReservaResponse)
+def completar_reserva(
+    reserva_id: int,
+    datos: CompletarReservaRequest,
+    proveedor: Proveedor = Depends(get_current_proveedor),
+    reserva_repo = Depends(get_reserva_repo),
+    pago_repo = Depends(get_pago_transaccion_repo),
+):
+    """Solo el proveedor dueño puede marcar su reserva como completada."""
+    return reserva_gestion_service.completar_reserva(
+        reserva_id, datos, proveedor, reserva_repo, pago_repo
+    )

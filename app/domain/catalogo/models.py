@@ -98,6 +98,7 @@ class Paquete(Base):
         server_default="ACTIVO",
     )
     updated_at   = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    deleted_at   = Column(TIMESTAMP, nullable=True)
 
     # ── Relaciones ────────────────────────────────────────────────────────────
     proveedor        = relationship("Proveedor",      back_populates="paquetes")

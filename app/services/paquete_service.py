@@ -7,6 +7,7 @@ from app.domain.common.enums import EstadoBasico
 from app.domain.catalogo.schemas import PaqueteCreate, PaqueteUpdate
 from app.repositories.catalogo_repository import PaqueteRepository, DetallePaqueteRepository
 
+from datetime import datetime, UTC
 
 def listar_paquetes(
     proveedor_id: Optional[int],
@@ -14,7 +15,10 @@ def listar_paquetes(
     repo: PaqueteRepository,
 ) -> List[Paquete]:
     """Lista paquetes activos con filtros opcionales."""
-    query = repo.db.query(Paquete).filter(Paquete.estado == EstadoBasico.ACTIVO)
+    query = repo.db.query(Paquete).filter(
+        Paquete.estado == EstadoBasico.ACTIVO,
+        Paquete.deleted_at.is_(None),
+    )
     if proveedor_id:
         query = query.filter(Paquete.proveedor_id == proveedor_id)
     if categoria_id:
@@ -23,8 +27,12 @@ def listar_paquetes(
 
 
 def obtener_paquete(paquete_id: int, repo: PaqueteRepository) -> Paquete:
-    """Busca un paquete por ID. Lanza 404 si no existe."""
-    paquete = repo.get(paquete_id)
+    """Busca un paquete activo por ID. Lanza 404 si no existe, está inactivo o eliminado."""
+    paquete = repo.db.query(Paquete).filter(
+        Paquete.id == paquete_id,
+        Paquete.estado == EstadoBasico.ACTIVO,
+        Paquete.deleted_at.is_(None),
+    ).first()
     if not paquete:
         raise HTTPException(status_code=404, detail="Paquete no encontrado")
     return paquete
@@ -65,9 +73,10 @@ def actualizar_paquete(
 
 
 def eliminar_paquete(paquete_id: int, repo: PaqueteRepository) -> None:
-    """Soft delete: marca el paquete como INACTIVO."""
+    """Soft delete: marca el paquete como INACTIVO y registra cuándo."""
     paquete = repo.get(paquete_id)
     if not paquete:
         raise HTTPException(status_code=404, detail="Paquete no encontrado")
     paquete.estado = EstadoBasico.INACTIVO
+    paquete.deleted_at = datetime.now(UTC)
     repo.db.commit()
