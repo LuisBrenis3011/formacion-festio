@@ -2,7 +2,7 @@
 Lógica de negocio para el inventario del proveedor autenticado.
 Reutiliza el modelo ServicioProducto pero con scope al proveedor logueado.
 """
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List
 
 from fastapi import HTTPException
@@ -87,5 +87,5 @@ def actualizar_servicio(
 def eliminar_servicio(servicio_id: int, proveedor: Proveedor, repo: ServicioProductoRepository) -> None:
     """Soft delete: guarda la fecha de eliminación."""
     servicio = obtener_servicio(servicio_id, proveedor, repo)
-    servicio.deleted_at = datetime.utcnow()
+    servicio.deleted_at = datetime.now(UTC)
     repo.db.commit()

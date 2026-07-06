@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 from fastapi import HTTPException
 from app.domain.reservas.models import Reserva, Evento
 from app.domain.reservas.schemas import MisReservasItemOut, MisReservasDetalleOut
@@ -43,7 +43,7 @@ def cancelar_reserva(reserva_id: int, usuario: Usuario, reserva_repo: ReservaRep
         )
 
     reserva.estado = EstadoReserva.CANCELADA
-    reserva.deleted_at = datetime.utcnow()
+    reserva.deleted_at = datetime.now(UTC)
     reserva_repo.db.commit()
     return {"mensaje": "Reserva cancelada correctamente"}
 
