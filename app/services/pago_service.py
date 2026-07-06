@@ -1,19 +1,18 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+import logging
 
 from app.domain.common.enums   import EstadoPago, TipoComprobante
 from app.domain.pagos.models    import PagoTransaccion, Comprobante
 from app.domain.reservas.models import Reserva, Evento
 from app.domain.usuarios.models import Cliente, Proveedor
 from app.domain.pagos.schemas   import PagoCreate
-from app.services.mercadopago_service import mp_client
+from app.services.mercadopago_service import mp_client, MercadoPagoError
+
+logger = logging.getLogger(__name__)
 
 
 def procesar_pago(datos: PagoCreate, db: Session) -> PagoTransaccion:
-    """
-    Registra el intento de pago. En producción aquí iría
-    la llamada real a Yape/Plin/pasarela bancaria.
-    """
     reserva = db.query(Reserva).filter(Reserva.id == datos.reserva_id).first()
     if not reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
@@ -141,11 +140,6 @@ def emitir_comprobante(
     tipo:       str,
     db:         Session
 ) -> Comprobante:
-    """
-    Genera y registra el comprobante automáticamente
-    después de confirmar el pago exitoso.
-    """
-    # Generar número correlativo simple
     ultimo = db.query(Comprobante).order_by(Comprobante.id.desc()).first()
     correlativo = (ultimo.id + 1) if ultimo else 1
     serie       = "B001" if tipo == "BOLETA" else "F001"
@@ -156,7 +150,7 @@ def emitir_comprobante(
         pago_id            = pago_id,
         tipo               = tipo,
         numero_comprobante = numero,
-        url_pdf            = None,  # Aquí iría la URL al PDF generado
+        url_pdf            = None,
     )
     db.add(comprobante)
     db.commit()
@@ -196,41 +190,63 @@ def iniciar_pago_mercadopago(
 
 def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
     """
-    Lee la notificación de Mercado Pago y orquesta la aprobación o rechazo.
+    Procesa notificaciones IPN de Mercado Pago.
+    Flujo:
+      1. Extrae el payment_id del webhook.
+      2. Verifica el pago contra la API de MP (anti-spoofing).
+      3. Si approved  -> confirma reserva desde Redis y libera el bloqueo.
+      4. Si rejected  -> rechaza pago en BD, libera bloqueo Redis y notifica.
     """
-    # Mercado Pago envía notificaciones de varios tipos, nos interesan los 'payment'
-    if datos_webhook.get("type") == "payment" or "data" in datos_webhook:
-        # En un flujo real, aquí harías un GET a la API de MP para verificar el estado
-        # del pago usando el ID que viene en el webhook para evitar falsificaciones.
-        
-        # Simulación de datos extraídos del webhook verificado:
-        pago_id_str = datos_webhook.get("external_reference")
-        estado_mp = datos_webhook.get("status") # ej: "approved", "rejected"
-        codigo_transaccion = str(datos_webhook.get("id"))
-        
-        # Extraemos el metadata que enviamos previamente
-        metadata = datos_webhook.get("metadata", {})
-        reserva_temp_id = metadata.get("reserva_temp_id")
+    mp_payment_id = datos_webhook.get("data", {}).get("id")
+    if not mp_payment_id:
+        return
 
-        if not pago_id_str or not reserva_temp_id:
-            return # Falta información crítica
-            
-        pago_id = int(pago_id_str)
+    try:
+        payment_info = mp_client.obtener_pago(int(mp_payment_id))
+    except Exception:
+        return
 
-        if estado_mp == "approved":
-            # Llamamos a tu función orquestadora existente
-            aprobar_pago_completo(
-                pago_id=pago_id,
-                reserva_temp_id=reserva_temp_id,
-                codigo_transaccion=codigo_transaccion,
-                db=db
+    estado_mp = payment_info.get("status")
+    codigo_transaccion = str(payment_info.get("id", mp_payment_id))
+    pago_id_str = payment_info.get("external_reference")
+    metadata = payment_info.get("metadata", {})
+    reserva_temp_id = metadata.get("reserva_temp_id")
+
+    if not pago_id_str or not reserva_temp_id:
+        return
+
+    pago_id = int(pago_id_str)
+
+    pago_existente = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
+    if pago_existente and pago_existente.estado != EstadoPago.PENDIENTE:
+        return
+
+    if estado_mp == "approved":
+        aprobar_pago_completo(
+            pago_id=pago_id,
+            reserva_temp_id=reserva_temp_id,
+            codigo_transaccion=codigo_transaccion,
+            db=db,
+        )
+
+    elif estado_mp in ("rejected", "cancelled"):
+        from app.services import bloqueo_service
+
+        pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
+        if pago:
+            reserva_id = pago.reserva_id
+            usuario_id = (
+                db.query(Cliente.usuario_id)
+                .join(Evento, Evento.cliente_id == Cliente.id)
+                .join(Reserva, Reserva.evento_id == Evento.id)
+                .filter(Reserva.id == reserva_id)
+                .scalar()
             )
-        elif estado_mp in ["rejected", "cancelled"]:
-            pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
-            if pago:
-                rechazar_pago_completo(
-                    pago_id=pago_id, 
-                    usuario_id=pago.reserva.evento.cliente.usuario_id, # Asumiendo relaciones
-                    reserva_id=pago.reserva_id, 
-                    db=db
-                )
+            rechazar_pago_completo(
+                pago_id=pago_id,
+                usuario_id=usuario_id or 0,
+                reserva_id=reserva_id,
+                db=db,
+            )
+
+        bloqueo_service.liberar_bloqueo(reserva_temp_id)

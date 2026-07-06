@@ -19,3 +19,9 @@ AGENTS.md
 plan-despliegue.md
 
 Tareas-festio.md
+
+db/init.sql
+
+docker-compose.yml
+
+start-db.ps1
