@@ -18,6 +18,7 @@ def notificaciones_usuario(
     usuario: Usuario = Depends(get_current_user),
 ):
     """Lista todas las notificaciones de un usuario ordenadas por fecha."""
+    # La ruta conserva usuario_id por compatibilidad, pero la autorización siempre sale del token.
     if usuario_id != usuario.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

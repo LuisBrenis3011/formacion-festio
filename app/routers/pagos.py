@@ -13,6 +13,7 @@ router = APIRouter()
 def require_payment_webhook_secret(
     x_webhook_secret: str | None = Header(default=None, alias="X-Webhook-Secret"),
 ):
+    # Este webhook no usa JWT; se protege con un secreto compartido inyectado por entorno.
     if x_webhook_secret != settings.PAYMENT_WEBHOOK_SECRET:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

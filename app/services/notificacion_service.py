@@ -17,6 +17,7 @@ def listar_notificaciones_usuario(usuario_id: int, repo: NotificacionRepository)
 
 def marcar_leida(notificacion_id: int, usuario_id: int, repo: NotificacionRepository) -> dict:
     """Marca una notificación como leída."""
+    # Filtrar también por usuario evita marcar notificaciones ajenas y no revela si ese ID existe para otro usuario.
     notif = repo.db.query(Notificacion).filter(
         Notificacion.id == notificacion_id,
         Notificacion.usuario_id == usuario_id,
