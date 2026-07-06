@@ -3,9 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.dependencies import get_current_user
+
 from app.database import get_db
 from app.domain.pagos.schemas import PagoCreate, PagoOut, ComprobanteOut
 from app.services import pago_service
+
+from app.repositories.pago_repository import PagoTransaccionRepository
+from app.repositories.reserva_repository import ReservaRepository
 
 router = APIRouter()
 
@@ -28,7 +32,15 @@ def registrar_pago(
     _: int = Depends(get_current_user)
 ):
     """Registra el intento de pago del adelanto del 10%."""
-    return pago_service.procesar_pago(datos, db)
+
+    pago_repo = PagoTransaccionRepository(db)
+    reserva_repo = ReservaRepository(db)
+
+    return pago_service.procesar_pago(
+        datos,
+        pago_repo,
+        reserva_repo
+    )
 
 
 @router.post("/{pago_id}/aprobar", response_model=PagoOut)
