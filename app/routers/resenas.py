@@ -29,10 +29,10 @@ def crear_resena(
     datos: ResenaCreate,
     resena_repo: ResenaRepository = Depends(get_resena_repo),
     proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo),
-    _: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user)
 ):
     """El cliente deja su reseña después de completar el evento."""
-    return resena_service.crear_resena(datos, resena_repo, proveedor_repo)
+    return resena_service.crear_resena(datos, usuario, resena_repo, proveedor_repo)
 
 
 @router.post("/publica", response_model=ResenaPublicaOut, status_code=201)
