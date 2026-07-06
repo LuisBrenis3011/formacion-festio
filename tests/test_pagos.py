@@ -6,14 +6,14 @@ TASK-TEST-03 — Tests de pagos.
 Estado: 5 de 7 tests del backlog implementados (1 de ellos, a proposito,
 documenta un bug real: ver test_rechazar_pago_y_notificacion).
 
-⚠️ PENDIENTES:
+PENDIENTES:
   - test_aprobar_pago_exitoso
   - test_comprobante_generado_despues_aprobacion
 Bloqueados por TASK-BIZ-05 (ver detalle en el bloque de comentarios al
 final del archivo) y por app/services/disponibilidad_service.py /
 app/domain/pagos/models.py, aun no vistos.
 
-⚠️ AJUSTAR: PAGOS_PREFIX se infiere por el mismo patron usado en
+AJUSTAR: PAGOS_PREFIX se infiere por el mismo patron usado en
 /api/auth y /api/reservas. Confirmar en app/main.py.
 """
 from datetime import datetime, timedelta, timezone

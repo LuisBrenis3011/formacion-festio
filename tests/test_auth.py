@@ -3,11 +3,11 @@ tests/test_auth.py
 
 TASK-TEST-01 — Tests de autenticación y registro.
 
-⚠️ AJUSTAR: AUTH_PREFIX se infiere de `tokenUrl="/api/auth/login"` visto en
+AJUSTAR: AUTH_PREFIX se infiere de `tokenUrl="/api/auth/login"` visto en
 app/core/dependencies.py. Confirma el prefix real en app/main.py
 (app.include_router(auth_router, prefix=...)) y ajústalo si es distinto.
 
-⚠️ Estos tests validan el comportamiento DESCRITO en el backlog (400 en
+Estos tests validan el comportamiento DESCRITO en el backlog (400 en
 email duplicado, 401 en credenciales incorrectas, 403 en cuenta inactiva).
 No tengo el contenido de app/services/auth_service.py, así que si algún
 test falla, puede ser una señal real de que ese comportamiento todavía no

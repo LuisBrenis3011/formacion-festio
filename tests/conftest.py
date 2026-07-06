@@ -12,9 +12,6 @@ Imports y fixtures verificados contra:
 
 - app/services/bloqueo_service.py (crear_bloqueo, obtener_bloqueo, liberar_bloqueo, listar_bloqueos)
 
-✅ Ya corregido: bloqueo_service.py hace `from app.redis_client import
-redis_client` (import directo), así que el mock parchea esa referencia
-puntual además del módulo app.redis_client. Ver fixture mock_redis.
 """
 
 import pytest

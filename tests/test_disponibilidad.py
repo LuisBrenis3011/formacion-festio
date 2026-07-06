@@ -7,16 +7,7 @@ Cubre:
 - app/routers/disponibilidad.py  (POST /consultar)
 - app/services/disponibilidad_service.py (consultar_disponibilidad)
 
-⚠️ SUPUESTOS A VERIFICAR (ajustar si no coinciden con tu app real):
-1. ENDPOINT: asumido "/api/disponibilidad/consultar" siguiendo el mismo
-   patrón de prefijo que "/api/reservas/...". Si el prefijo real es otro,
-   cambia la constante ENDPOINT más abajo.
-2. TipoItemCatalogo.SERVICIO: no tuve a la vista app/domain/common/enums.py,
-   así que asumí que el enum tiene un miembro llamado SERVICIO. Si el nombre
-   real es distinto, ajusta la única línea donde se usa
-   (fixture `_crear_servicio_producto`).
-
-🐛 BUG CONFIRMADO (con evidencia, ver test_bloqueo_temporal_cuenta_como_ocupacion):
+BUG CONFIRMADO (con evidencia, ver test_bloqueo_temporal_cuenta_como_ocupacion):
 `disponibilidad_service.consultar_disponibilidad()` NUNCA lee Redis. Solo
 suma desde las tablas OcupacionServicioProducto / OcupacionGlobalProveedor
 en BD. Peor aún: `bloqueo_service.listar_bloqueos()` ya existe y su propio
