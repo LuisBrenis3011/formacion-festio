@@ -19,10 +19,11 @@ router = APIRouter()
 @router.get("/", response_model=List[ProveedorOut])
 def listar_proveedores(
     distrito: Optional[str] = Query(None, description="Filtrar por distrito"),
-    repo: ProveedorRepository = Depends(get_proveedor_repo)
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
-    """Lista todos los proveedores verificados. Filtra por distrito si se indica."""
-    return proveedor_service.listar_proveedores(distrito, repo)
+    return proveedor_service.listar_proveedores(distrito, repo, skip=skip, limit=limit)
 
 
 @router.get("/mi-perfil", response_model=ProveedorOut)

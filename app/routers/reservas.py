@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user, get_optional_current_user
 from app.domain.usuarios.models import Usuario
@@ -43,9 +43,13 @@ def obtener_evento(evento_id: int, evento_repo = Depends(get_evento_repo)):
 
 
 @router.get("/cliente/{cliente_id}", response_model=List[EventoOut])
-def eventos_por_cliente(cliente_id: int, evento_repo = Depends(get_evento_repo)):
-    """Historial de eventos de un cliente."""
-    return evento_service.eventos_por_cliente(cliente_id, evento_repo)
+def eventos_por_cliente(
+    cliente_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    evento_repo = Depends(get_evento_repo),
+):
+    return evento_service.eventos_por_cliente(cliente_id, evento_repo, skip=skip, limit=limit)
 
 
 # ── Reservas ──────────────────────────────────────────────────────────────────
@@ -138,6 +142,8 @@ def confirmar_reserva(
 
 @router.get("/mis-reservas", response_model=List[MisReservasItemOut])
 def mis_reservas(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     usuario: Usuario = Depends(get_current_user),
     reserva_repo = Depends(get_reserva_repo),
     evento_repo = Depends(get_evento_repo),
@@ -146,9 +152,9 @@ def mis_reservas(
     paquete_repo = Depends(get_paquete_repo),
     servicio_repo = Depends(get_servicio_producto_repo),
 ):
-    """Historial de reservas del cliente autenticado."""
     return reserva_gestion_service.listar_mis_reservas(
-        usuario, reserva_repo, evento_repo, cliente_repo, proveedor_repo, paquete_repo, servicio_repo
+        usuario, reserva_repo, evento_repo, cliente_repo, proveedor_repo, paquete_repo, servicio_repo,
+        skip=skip, limit=limit,
     )
 
 

@@ -9,12 +9,11 @@ from app.domain.usuarios.models import Proveedor
 from app.repositories.personal_repository import PersonalRepository, PersonalRolRepository
 
 
-def listar_personal_proveedor(proveedor_id: int, repo: PersonalRepository) -> List[Personal]:
-    """Lista todo el personal activo de un proveedor con sus roles."""
+def listar_personal_proveedor(proveedor_id: int, repo: PersonalRepository, skip: int = 0, limit: int = 100) -> List[Personal]:
     return repo.db.query(Personal).filter(
         Personal.proveedor_id == proveedor_id,
         Personal.estado == EstadoBasico.ACTIVO
-    ).all()
+    ).offset(skip).limit(limit).all()
 
 
 def obtener_personal(personal_id: int, repo: PersonalRepository) -> Personal:

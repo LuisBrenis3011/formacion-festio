@@ -14,8 +14,7 @@ from app.domain.catalogo.schemas import ProveedorServicioCreate, ProveedorServic
 from app.repositories.catalogo_repository import CategoriaRepository, ServicioProductoRepository
 
 
-def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository) -> List[ServicioProducto]:
-    """Lista todos los servicios/productos del proveedor (activos y no eliminados)."""
+def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository, skip: int = 0, limit: int = 100) -> List[ServicioProducto]:
     return (
         repo.db.query(ServicioProducto)
         .filter(
@@ -23,6 +22,8 @@ def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository) ->
             ServicioProducto.deleted_at == None,
         )
         .order_by(ServicioProducto.id.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 

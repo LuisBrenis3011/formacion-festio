@@ -42,12 +42,15 @@ def listar_resenas_publicas(
     proveedor_id: int,
     resena_repo: ResenaRepository,
     usuario_repo: UsuarioRepository,
+    skip: int = 0,
+    limit: int = 100,
 ) -> List[ResenaPublicaOut]:
-    """Lista reseñas de un proveedor con el nombre del usuario que la escribió."""
     resenas = (
         resena_repo.db.query(Resena)
         .filter(Resena.proveedor_id == proveedor_id)
         .order_by(Resena.fecha.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
     resultado: List[ResenaPublicaOut] = []
