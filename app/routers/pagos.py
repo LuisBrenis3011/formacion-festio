@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, Request, Header, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 import logging
 
 from app.config import settings
 from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.domain.usuarios.models import Usuario
-from app.domain.pagos.schemas import PagoCreate, PagoOut, ComprobanteOut
+from app.domain.pagos.schemas import PagoCreate, PagoOut, ComprobanteOut, IniciarPagoMPRequest, IniciarPagoMPResponse
 from app.services import pago_service
 from app.repositories.pago_repository import PagoTransaccionRepository
 from app.repositories.reserva_repository import ReservaRepository
@@ -15,11 +14,6 @@ from app.repositories.reserva_repository import ReservaRepository
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-class IniciarPagoMP(BaseModel):
-    pago: PagoCreate
-    titulo_evento: str
-    reserva_temp_id: str
 
 
 def require_payment_webhook_secret(
@@ -33,19 +27,16 @@ def require_payment_webhook_secret(
         )
 
 
-@router.post("/iniciar", status_code=200)
+@router.post("/iniciar", status_code=200, response_model=IniciarPagoMPResponse)
 def iniciar_pago(
-    request_data: IniciarPagoMP,
+    request_data: IniciarPagoMPRequest,
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(get_current_user),
 ):
-    email_cliente = usuario_actual.email
-
     url_pago = pago_service.iniciar_pago_mercadopago(
-        datos=request_data.pago,
-        email_cliente=email_cliente,
-        titulo_evento=request_data.titulo_evento,
-        reserva_temp_id=request_data.reserva_temp_id,
+        datos=request_data,
+        email_cliente=usuario_actual.email,
+        usuario_id=usuario_actual.id,
         db=db,
     )
 

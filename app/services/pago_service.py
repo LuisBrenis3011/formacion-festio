@@ -1,12 +1,14 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from decimal import Decimal
+from datetime import datetime, UTC
 import logging
 
-from app.domain.common.enums import EstadoPago, TipoComprobante
+from app.domain.common.enums import EstadoPago, MetodoPago, TipoPago, TipoComprobante, RolUsuario
 from app.domain.pagos.models import PagoTransaccion, Comprobante
-from app.domain.reservas.models import Reserva, Evento
-from app.domain.usuarios.models import Cliente, Proveedor
-from app.domain.pagos.schemas import PagoCreate
+from app.domain.reservas.models import Reserva, Evento, DetalleReserva
+from app.domain.usuarios.models import Cliente, Proveedor, Usuario
+from app.domain.pagos.schemas import PagoCreate, IniciarPagoMPRequest
 from app.services.mercadopago_service import mp_client, MercadoPagoError
 
 logger = logging.getLogger(__name__)
@@ -217,35 +219,27 @@ def emitir_comprobante(
     return comprobante
 
 def iniciar_pago_mercadopago(
-    datos: PagoCreate, 
-    email_cliente: str, 
-    titulo_evento: str, 
-    reserva_temp_id: str, 
-    db: Session
+    datos: IniciarPagoMPRequest,
+    email_cliente: str,
+    usuario_id: int,
+    db: Session,
 ) -> str:
     """
-    1. Registra el pago en estado PENDIENTE en BD.
-    2. Solicita el link de pago a Mercado Pago.
+    Genera la preferencia de pago en Mercado Pago y retorna la URL de checkout.
+    No crea registros en BD todavia; eso se hara cuando el webhook confirme el pago.
     """
-    pago_repo = PagoTransaccionRepository(db)
-    reserva_repo = ReservaRepository(db)
-    
-    # 1. Usamos el patrón de repositorios para guardar en BD (estado PENDIENTE)
-    pago = procesar_pago(datos, pago_repo, reserva_repo)
-    
-    # 2. Generamos el link de pago
     try:
         url_pago = mp_client.generar_preferencia(
-            pago_id=pago.id,
-            monto=pago.monto,
-            titulo_evento=titulo_evento,
+            external_reference=datos.reserva_temp_id,
+            monto=datos.monto,
+            titulo_evento=datos.titulo_evento,
             email_cliente=email_cliente,
-            reserva_temp_id=reserva_temp_id
+            reserva_temp_id=datos.reserva_temp_id,
+            usuario_id=usuario_id,
+            metodo_pago=datos.metodo_pago.value,
         )
         return url_pago
-    except Exception as e:
-        # Si Mercado Pago falla, rechazamos el pago internamente para mantener consistencia
-        rechazar_pago(pago_id=pago.id, pago_repo=pago_repo)
+    except MercadoPagoError:
         raise HTTPException(status_code=502, detail="Error al generar pasarela de pago")
 
 def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
@@ -254,9 +248,11 @@ def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
     Flujo:
       1. Extrae el payment_id del webhook.
       2. Verifica el pago contra la API de MP (anti-spoofing).
-      3. Si approved  -> confirma reserva desde Redis y libera el bloqueo.
-      4. Si rejected  -> rechaza pago en BD, libera bloqueo Redis y notifica.
+      3. Si approved  -> crea reserva en BD desde Redis + pago + comprobante + notifica.
+      4. Si rejected  -> libera bloqueo Redis.
     """
+    from app.services import bloqueo_service
+
     mp_payment_id = datos_webhook.get("data", {}).get("id")
     if not mp_payment_id:
         return
@@ -264,49 +260,199 @@ def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
     try:
         payment_info = mp_client.obtener_pago(int(mp_payment_id))
     except Exception:
+        logger.exception("Error verificando pago en MP para webhook")
         return
 
     estado_mp = payment_info.get("status")
-    codigo_transaccion = str(payment_info.get("id", mp_payment_id))
-    pago_id_str = payment_info.get("external_reference")
     metadata = payment_info.get("metadata", {})
     reserva_temp_id = metadata.get("reserva_temp_id")
+    usuario_id = metadata.get("usuario_id")
+    metodo_pago_str = metadata.get("metodo_pago", "TARJETA")
 
-    if not pago_id_str or not reserva_temp_id:
+    if not reserva_temp_id or not usuario_id:
+        logger.warning("Webhook sin reserva_temp_id o usuario_id en metadata")
         return
 
-    pago_id = int(pago_id_str)
-
-    pago_existente = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
-    if pago_existente and pago_existente.estado != EstadoPago.PENDIENTE:
+    datos_bloqueo = bloqueo_service.obtener_bloqueo(reserva_temp_id)
+    if not datos_bloqueo:
+        logger.warning("Redis lock expirado para reserva_temp_id=%s", reserva_temp_id)
         return
 
     if estado_mp == "approved":
-        aprobar_pago_completo(
-            pago_id=pago_id,
-            reserva_temp_id=reserva_temp_id,
-            codigo_transaccion=codigo_transaccion,
+        _confirmar_reserva_desde_webhook(
+            datos_bloqueo=datos_bloqueo,
+            usuario_id=int(usuario_id),
+            payment_info=payment_info,
+            metodo_pago_str=metodo_pago_str,
             db=db,
         )
 
     elif estado_mp in ("rejected", "cancelled"):
-        from app.services import bloqueo_service
-
-        pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
-        if pago:
-            reserva_id = pago.reserva_id
-            usuario_id = (
-                db.query(Cliente.usuario_id)
-                .join(Evento, Evento.cliente_id == Cliente.id)
-                .join(Reserva, Reserva.evento_id == Evento.id)
-                .filter(Reserva.id == reserva_id)
-                .scalar()
-            )
-            rechazar_pago_completo(
-                pago_id=pago_id,
-                usuario_id=usuario_id or 0,
-                reserva_id=reserva_id,
-                db=db,
-            )
-
         bloqueo_service.liberar_bloqueo(reserva_temp_id)
+        logger.info("Pago rechazado/cancelado, bloqueo liberado para reserva_temp_id=%s", reserva_temp_id)
+
+
+def _confirmar_reserva_desde_webhook(
+    datos_bloqueo: dict,
+    usuario_id: int,
+    payment_info: dict,
+    metodo_pago_str: str,
+    db: Session,
+):
+    """
+    Crea todos los registros en BD a partir del bloqueo Redis cuando el pago es aprobado.
+    Soporta dos formatos de Redis:
+      - prebloquear (publico): tiene clave "evento" con datos del evento
+      - iniciar_reserva (auth): tiene clave "evento_id" con ID de evento existente
+    """
+    from app.services.reserva import checkout_service, calculo_service
+    from app.services import bloqueo_service, notificacion_service
+    from app.repositories.catalogo_repository import ServicioProductoRepository
+    from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
+    from app.repositories.notificacion_repository import NotificacionRepository
+
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario or usuario.rol != RolUsuario.CLIENTE:
+        logger.warning("Usuario %s no es un cliente valido", usuario_id)
+        return
+
+    cliente = db.query(Cliente).filter(Cliente.usuario_id == usuario_id).first()
+    if not cliente:
+        cliente = Cliente(usuario_id=usuario_id)
+        db.add(cliente)
+        db.flush()
+
+    if "evento_id" in datos_bloqueo:
+        evento = db.query(Evento).filter(Evento.id == datos_bloqueo["evento_id"]).first()
+        if not evento:
+            logger.warning("Evento %s no encontrado", datos_bloqueo["evento_id"])
+            return
+        fecha_inicio = evento.fecha_evento_inicio
+        fecha_fin = evento.fecha_evento_fin
+    elif "evento" in datos_bloqueo:
+        evento_data = datos_bloqueo["evento"]
+        fecha_inicio = calculo_service.parse_datetime(evento_data["fecha_evento_inicio"])
+        fecha_fin = calculo_service.parse_datetime(evento_data["fecha_evento_fin"])
+        evento = Evento(
+            cliente_id=cliente.id,
+            nombre_evento=evento_data["nombre_evento"],
+            tipo_evento=evento_data.get("tipo_evento"),
+            fecha_evento_inicio=fecha_inicio,
+            fecha_evento_fin=fecha_fin,
+            direccion=evento_data["direccion"],
+            aforo_estimado=evento_data.get("aforo_estimado"),
+        )
+        db.add(evento)
+        db.flush()
+    else:
+        logger.warning("Redis blob sin datos de evento")
+        return
+
+    proveedor = db.query(Proveedor).filter(Proveedor.id == datos_bloqueo["proveedor_id"]).first()
+    if not proveedor:
+        logger.warning("Proveedor %s no encontrado", datos_bloqueo["proveedor_id"])
+        return
+
+    servicio_repo = ServicioProductoRepository(db)
+    ocupacion_sp_repo = OcupacionServicioProductoRepository(db)
+    ocupacion_global_repo = OcupacionGlobalProveedorRepository(db)
+
+    items_ocupacion = datos_bloqueo.get("items_ocupacion", [])
+    if items_ocupacion:
+        observaciones = checkout_service._validar_disponibilidad_items(
+            proveedor=proveedor,
+            items_ocupacion=items_ocupacion,
+            inicio=fecha_inicio,
+            fin=fecha_fin,
+            servicio_repo=servicio_repo,
+            ocupacion_sp_repo=ocupacion_sp_repo,
+            ocupacion_global_repo=ocupacion_global_repo,
+            reserva_temp_id_actual=datos_bloqueo.get("reserva_temp_id"),
+        )
+        if observaciones:
+            logger.warning("Inventario no disponible en webhook: %s", observaciones)
+            bloqueo_service.liberar_bloqueo(datos_bloqueo["reserva_temp_id"])
+            return
+
+    codigo_transaccion = str(payment_info.get("id"))
+
+    try:
+        metodo_pago = MetodoPago(metodo_pago_str)
+    except ValueError:
+        metodo_pago = MetodoPago.TARJETA
+
+    reserva = Reserva(
+        evento_id=evento.id,
+        proveedor_id=datos_bloqueo["proveedor_id"],
+        estado="CONFIRMADA",
+        monto_total=Decimal(str(datos_bloqueo["monto_total"])),
+        costo_movilidad=Decimal("0.00"),
+        monto_adelanto=Decimal(str(datos_bloqueo["monto_adelanto"])),
+        monto_pendiente=Decimal(str(datos_bloqueo["monto_pendiente"])),
+    )
+    db.add(reserva)
+    db.flush()
+
+    for detalle_data in datos_bloqueo.get("detalles_reserva", []):
+        db.add(DetalleReserva(
+            reserva_id=reserva.id,
+            paquete_id=detalle_data.get("paquete_id"),
+            servicio_producto_id=detalle_data.get("servicio_producto_id"),
+            cantidad=detalle_data.get("cantidad", 1),
+            horas_contratadas=detalle_data.get("horas_contratadas"),
+            precio_unitario=Decimal(str(detalle_data["precio_unitario"])),
+            subtotal=Decimal(str(detalle_data["subtotal"])),
+            fecha_hora_inicio_servicio=fecha_inicio,
+            fecha_hora_fin_servicio=fecha_fin,
+        ))
+
+    for item in items_ocupacion:
+        checkout_service._actualizar_ocupacion_item(
+            servicio_producto_id=item["servicio_producto_id"],
+            cantidad=item["cantidad"],
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            ocupacion_sp_repo=ocupacion_sp_repo,
+        )
+
+    personas = int(datos_bloqueo.get("personas_requeridas") or 0)
+    if personas:
+        checkout_service._actualizar_ocupacion_global(
+            proveedor_id=datos_bloqueo["proveedor_id"],
+            cantidad=personas,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            ocupacion_global_repo=ocupacion_global_repo,
+        )
+
+    pago = PagoTransaccion(
+        reserva_id=reserva.id,
+        tipo_pago=TipoPago.ADELANTO_ONLINE,
+        monto=Decimal(str(datos_bloqueo["monto_adelanto"])),
+        metodo_pago=metodo_pago,
+        estado=EstadoPago.APROBADO,
+        codigo_transaccion=codigo_transaccion,
+        fecha_pago=datetime.now(UTC),
+    )
+    db.add(pago)
+    db.flush()
+
+    emitir_comprobante(
+        reserva_id=reserva.id,
+        pago_id=pago.id,
+        tipo=TipoComprobante.BOLETA,
+        db=db,
+    )
+
+    db.commit()
+
+    bloqueo_service.liberar_bloqueo(datos_bloqueo["reserva_temp_id"])
+
+    notificacion_service.notificar_confirmacion_reserva(
+        usuario_cliente_id=usuario.id,
+        usuario_proveedor_id=proveedor.usuario_id,
+        reserva_id=reserva.id,
+        repo=NotificacionRepository(db),
+    )
+
+    logger.info("Reserva confirmada via webhook MP: reserva_id=%s, pago_id=%s", reserva.id, pago.id)
