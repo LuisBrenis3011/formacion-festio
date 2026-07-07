@@ -268,3 +268,35 @@ def auth_headers_cliente(token_cliente):
 @pytest.fixture
 def auth_headers_proveedor(token_proveedor):
     return {"Authorization": f"Bearer {token_proveedor}"}
+
+@pytest.fixture
+def usuario_cliente_otro(db_session):
+    """Segundo cliente, distinto de `usuario_cliente`, para tests de ownership."""
+    usuario = Usuario(
+        nombre="ClienteOtro",
+        apellido="Test",
+        email="cliente.otro@test.com",
+        telefono="987654325",
+        contrasena_hash=hash_password("Password123!"),
+        rol=RolUsuario.CLIENTE,
+        estado=EstadoBasico.ACTIVO,
+    )
+    db_session.add(usuario)
+    db_session.commit()
+    db_session.refresh(usuario)
+
+    cliente = Cliente(usuario_id=usuario.id, direccion="Av. Otro 456")
+    db_session.add(cliente)
+    db_session.commit()
+
+    return usuario
+
+
+@pytest.fixture
+def token_cliente_otro(usuario_cliente_otro):
+    return _token_para(usuario_cliente_otro)
+
+
+@pytest.fixture
+def auth_headers_cliente_otro(token_cliente_otro):
+    return {"Authorization": f"Bearer {token_cliente_otro}"}
