@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
 
 from app.domain.common.enums import EstadoReserva
 
@@ -49,8 +49,7 @@ class EventoOut(BaseModel):
     direccion: str
     aforo_estimado: Optional[int]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DetalleReservaPersonalCreate(BaseModel):
@@ -62,8 +61,7 @@ class DetalleReservaPersonalOut(BaseModel):
     personal_id: int
     fecha_asignacion: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DetalleReservaCreate(BaseModel):
@@ -88,8 +86,7 @@ class DetalleReservaOut(BaseModel):
     fecha_hora_fin_servicio: Optional[datetime]
     personal_asignado: List[DetalleReservaPersonalOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReservaCreate(BaseModel):
@@ -186,8 +183,7 @@ class ReservaOut(BaseModel):
     fecha_creacion: datetime
     detalles: List[DetalleReservaOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ConsultaDisponibilidadRequest(BaseModel):
@@ -220,8 +216,7 @@ class MisReservasDetalleOut(BaseModel):
     cantidad: int
     subtotal: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MisReservasItemOut(BaseModel):
@@ -239,5 +234,4 @@ class MisReservasItemOut(BaseModel):
     fecha_creacion: datetime
     detalles: List[MisReservasDetalleOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

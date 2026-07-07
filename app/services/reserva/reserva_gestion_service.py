@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 from fastapi import HTTPException
 from app.domain.reservas.models import Reserva, Evento
 from app.domain.reservas.schemas import MisReservasItemOut, MisReservasDetalleOut
@@ -21,9 +21,20 @@ def obtener_reserva(reserva_id: int, reserva_repo: ReservaRepository) -> Reserva
     return reserva
 
 
-def cancelar_reserva(reserva_id: int, reserva_repo: ReservaRepository) -> dict:
+def cancelar_reserva(reserva_id: int, usuario: Usuario, reserva_repo: ReservaRepository) -> dict:
     """Cancela una reserva confirmada (soft delete)."""
-    reserva = reserva_repo.db.query(Reserva).filter(Reserva.id == reserva_id).first()
+    # La ownership real de una reserva se resuelve por la cadena Usuario -> Cliente -> Evento -> Reserva.
+    reserva = (
+        reserva_repo.db.query(Reserva)
+        .join(Evento, Reserva.evento_id == Evento.id)
+        .join(Cliente, Evento.cliente_id == Cliente.id)
+        .filter(
+            Reserva.id == reserva_id,
+            Reserva.deleted_at == None,
+            Cliente.usuario_id == usuario.id,
+        )
+        .first()
+    )
     if not reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     if reserva.estado == EstadoReserva.COMPLETADA:
@@ -32,7 +43,7 @@ def cancelar_reserva(reserva_id: int, reserva_repo: ReservaRepository) -> dict:
         )
 
     reserva.estado = EstadoReserva.CANCELADA
-    reserva.deleted_at = datetime.utcnow()
+    reserva.deleted_at = datetime.now(UTC)
     reserva_repo.db.commit()
     return {"mensaje": "Reserva cancelada correctamente"}
 

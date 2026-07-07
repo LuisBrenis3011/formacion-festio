@@ -27,6 +27,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/festio_ci
       REDIS_URL: redis://127.0.0.1:6379
       SECRET_KEY: ci-secret
+      PAYMENT_WEBHOOK_SECRET: ci-webhook-secret
       GEMINI_API_KEY: ci-dummy-key
       APP_NAME: Festio
       DEBUG: "False"
@@ -34,6 +35,9 @@ jobs:
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       CORS_ALLOW_ORIGINS: https://tu-frontend.vercel.app
       CORS_ALLOW_ORIGIN_REGEX: ""
+       MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+      MERCADOPAGO_PUBLIC_KEY: ${{ secrets.MERCADOPAGO_PUBLIC_KEY }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
 
     steps:
       - name: Checkout

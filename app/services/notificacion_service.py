@@ -1,5 +1,7 @@
 from typing import List
 
+from fastapi import HTTPException
+
 from app.domain.common.enums import EstadoNotificacion
 from app.domain.notificaciones.models import Notificacion
 from app.domain.pagos.schemas import NotificacionCreate
@@ -12,12 +14,18 @@ def listar_notificaciones_usuario(usuario_id: int, repo: NotificacionRepository,
     ).order_by(Notificacion.fecha_envio.desc()).offset(skip).limit(limit).all()
 
 
-def marcar_leida(notificacion_id: int, repo: NotificacionRepository) -> dict:
+def marcar_leida(notificacion_id: int, usuario_id: int, repo: NotificacionRepository) -> dict:
     """Marca una notificación como leída."""
-    notif = repo.get(notificacion_id)
-    if notif:
-        notif.estado = EstadoNotificacion.LEIDA
-        repo.db.commit()
+    # Filtrar también por usuario evita marcar notificaciones ajenas y no revela si ese ID existe para otro usuario.
+    notif = repo.db.query(Notificacion).filter(
+        Notificacion.id == notificacion_id,
+        Notificacion.usuario_id == usuario_id,
+    ).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notificación no encontrada")
+
+    notif.estado = EstadoNotificacion.LEIDA
+    repo.db.commit()
     return {"mensaje": "Notificación marcada como leída"}
 
 

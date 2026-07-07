@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # App
@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     
     # JWT
     SECRET_KEY: str
+    PAYMENT_WEBHOOK_SECRET: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
@@ -46,8 +47,9 @@ class Settings(BaseSettings):
         value = self.CORS_ALLOW_ORIGIN_REGEX.strip()
         return value or None
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
 
 settings = Settings()

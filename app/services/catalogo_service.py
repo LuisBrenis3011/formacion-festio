@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional
 
 from fastapi import HTTPException
@@ -91,5 +91,5 @@ def eliminar_servicio(servicio_id: int, repo: ServicioProductoRepository) -> Non
     if not servicio:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
 
-    servicio.deleted_at = datetime.utcnow()
+    servicio.deleted_at = datetime.now(UTC)
     repo.db.commit()

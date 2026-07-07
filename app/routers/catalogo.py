@@ -2,7 +2,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import require_role
+from app.domain.common.enums import RolUsuario
 from app.domain.catalogo.schemas import (
     CategoriaCreate,
     CategoriaOut,
@@ -40,7 +41,7 @@ def listar_categorias(
 def crear_categoria(
     datos: CategoriaCreate,
     repo: CategoriaRepository = Depends(get_categoria_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     return catalogo_service.crear_categoria(datos, repo)
 
@@ -61,7 +62,7 @@ def listar_tematicas(
 def crear_tematica(
     datos: TematicaCreate,
     repo: TematicaRepository = Depends(get_tematica_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     return catalogo_service.crear_tematica(datos, repo)
 
@@ -88,7 +89,7 @@ def obtener_servicio(servicio_id: int, repo: ServicioProductoRepository = Depend
 def crear_servicio(
     datos: ServicioProductoCreate,
     repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     return catalogo_service.crear_servicio(datos, repo)
 
@@ -98,7 +99,7 @@ def actualizar_servicio(
     servicio_id: int,
     datos: ServicioProductoUpdate,
     repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     return catalogo_service.actualizar_servicio(servicio_id, datos, repo)
 
@@ -107,7 +108,7 @@ def actualizar_servicio(
 def eliminar_servicio(
     servicio_id: int,
     repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
-    _: int = Depends(get_current_user)
+    _: object = Depends(require_role(RolUsuario.PROVEEDOR))
 ):
     """Soft delete: guarda la fecha de eliminación sin borrar el registro."""
     catalogo_service.eliminar_servicio(servicio_id, repo)

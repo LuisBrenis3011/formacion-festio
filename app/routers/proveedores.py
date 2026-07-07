@@ -2,7 +2,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from app.core.dependencies import get_current_user, get_current_proveedor
+from app.core.dependencies import get_current_proveedor, require_role
+from app.domain.common.enums import RolUsuario
 from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
@@ -27,7 +28,7 @@ def listar_proveedores(
 
 @router.get("/mi-perfil", response_model=ProveedorOut)
 def mi_perfil(
-    usuario: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(require_role(RolUsuario.PROVEEDOR)),
     repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
     """Obtiene el perfil del proveedor logueado."""
@@ -37,7 +38,7 @@ def mi_perfil(
 @router.patch("/mi-perfil", response_model=ProveedorOut)
 def actualizar_mi_perfil(
     datos: ProveedorUpdate,
-    usuario: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(require_role(RolUsuario.PROVEEDOR)),
     repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
     """Actualiza el perfil propio del proveedor."""
@@ -64,7 +65,7 @@ def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository = Depends(get
 def crear_proveedor(
     datos: ProveedorCreate,
     repo: ProveedorRepository = Depends(get_proveedor_repo),
-    _: Usuario = Depends(get_current_user)
+    _: Usuario = Depends(require_role(RolUsuario.ADMIN))
 ):
     return proveedor_service.crear_proveedor(datos, repo)
 
@@ -74,7 +75,7 @@ def actualizar_proveedor(
     proveedor_id: int,
     datos: ProveedorUpdate,
     repo: ProveedorRepository = Depends(get_proveedor_repo),
-    _: Usuario = Depends(get_current_user)
+    _: Usuario = Depends(require_role(RolUsuario.ADMIN))
 ):
     """Endpoints administrativos."""
     return proveedor_service.actualizar_proveedor(proveedor_id, datos, repo)

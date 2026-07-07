@@ -2,47 +2,72 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import logging
 
-from app.domain.common.enums   import EstadoPago, TipoComprobante
-from app.domain.pagos.models    import PagoTransaccion, Comprobante
+from app.domain.common.enums import EstadoPago, TipoComprobante
+from app.domain.pagos.models import PagoTransaccion, Comprobante
 from app.domain.reservas.models import Reserva, Evento
 from app.domain.usuarios.models import Cliente, Proveedor
-from app.domain.pagos.schemas   import PagoCreate
+from app.domain.pagos.schemas import PagoCreate
 from app.services.mercadopago_service import mp_client, MercadoPagoError
 
 logger = logging.getLogger(__name__)
 
+from app.repositories.pago_repository import (
+    PagoTransaccionRepository,
+    ComprobanteRepository
+)
+from app.repositories.usuario_repository import (
+    ClienteRepository,
+    ProveedorRepository
+)
+from app.repositories.reserva_repository import (
+    ReservaRepository,
+    EventoRepository
+)
 
-def procesar_pago(datos: PagoCreate, db: Session) -> PagoTransaccion:
-    reserva = db.query(Reserva).filter(Reserva.id == datos.reserva_id).first()
+def procesar_pago(
+    datos: PagoCreate,
+    pago_repo: PagoTransaccionRepository,
+    reserva_repo: ReservaRepository,
+) -> PagoTransaccion:
+    reserva = reserva_repo.get(datos.reserva_id)
+
     if not reserva:
-        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+        raise HTTPException(
+            status_code=404,
+            detail="Reserva no encontrada"
+        )
 
-    pago = PagoTransaccion(
-        reserva_id         = datos.reserva_id,
-        tipo_pago          = datos.tipo_pago,
-        monto              = datos.monto,
-        metodo_pago        = datos.metodo_pago,
-        estado             = EstadoPago.PENDIENTE,
-        codigo_transaccion = datos.codigo_transaccion,
-    )
-    db.add(pago)
-    db.commit()
-    db.refresh(pago)
+    pago = pago_repo.create({
+        "reserva_id": datos.reserva_id,
+        "tipo_pago": datos.tipo_pago,
+        "monto": datos.monto,
+        "metodo_pago": datos.metodo_pago,
+        "estado": EstadoPago.PENDIENTE,
+        "codigo_transaccion": datos.codigo_transaccion,
+    })
+
     return pago
 
+def aprobar_pago(
+    pago_id: int,
+    codigo_transaccion: str,
+    pago_repo: PagoTransaccionRepository,
+) -> PagoTransaccion:
+    pago = pago_repo.get(pago_id)
 
-def aprobar_pago(pago_id: int, codigo_transaccion: str, db: Session) -> PagoTransaccion:
-    """Marca el pago como aprobado (llamado por la pasarela vía webhook)."""
-    pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
     if not pago:
-        raise HTTPException(status_code=404, detail="Pago no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Pago no encontrado"
+        )
 
-    pago.estado             = EstadoPago.APROBADO
+    pago.estado = EstadoPago.APROBADO
     pago.codigo_transaccion = codigo_transaccion
-    db.commit()
-    db.refresh(pago)
-    return pago
 
+    pago_repo.db.commit()
+    pago_repo.db.refresh(pago)
+
+    return pago
 
 def aprobar_pago_completo(
     pago_id: int,
@@ -62,9 +87,16 @@ def aprobar_pago_completo(
     from app.repositories.reserva_repository import EventoRepository, ReservaRepository, DetalleReservaRepository
     from app.repositories.catalogo_repository import ServicioProductoRepository
     from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
-
+    from app.repositories.notificacion_repository import NotificacionRepository
+    
     # 1. Aprobar el pago
-    pago = aprobar_pago(pago_id, codigo_transaccion, db)
+    pago_repo = PagoTransaccionRepository(db)
+
+    pago = aprobar_pago(
+        pago_id,
+        codigo_transaccion,
+        pago_repo
+    )
 
     # 2. Confirmar la reserva (convierte bloqueo Redis → BD)
     reserva = checkout_service.confirmar_reserva(
@@ -91,38 +123,60 @@ def aprobar_pago_completo(
     cliente   = db.query(Cliente).filter(Cliente.id == evento.cliente_id).first()
     proveedor = db.query(Proveedor).filter(Proveedor.id == reserva.proveedor_id).first()
 
+    repo_notificacion = NotificacionRepository(db)
+
     notificacion_service.notificar_confirmacion_reserva(
         usuario_cliente_id=cliente.usuario_id,
         usuario_proveedor_id=proveedor.usuario_id,
         reserva_id=reserva.id,
-        db=db,
+        repo=repo_notificacion,
     )
 
     return pago
 
+def rechazar_pago(
+    pago_id: int,
+    pago_repo: PagoTransaccionRepository
+) -> PagoTransaccion:
 
-def rechazar_pago(pago_id: int, db: Session) -> PagoTransaccion:
-    """Marca el pago como rechazado."""
-    pago = db.query(PagoTransaccion).filter(PagoTransaccion.id == pago_id).first()
+    pago = pago_repo.get(pago_id)
+
     if not pago:
-        raise HTTPException(status_code=404, detail="Pago no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Pago no encontrado"
+        )
 
     pago.estado = EstadoPago.RECHAZADO
-    db.commit()
-    db.refresh(pago)
-    return pago
 
+    pago_repo.db.commit()
+    pago_repo.db.refresh(pago)
+
+    return pago
 
 def rechazar_pago_completo(
     pago_id: int, usuario_id: int, reserva_id: int, db: Session
 ) -> dict:
     """Marca el pago como rechazado y notifica al cliente."""
     from app.services import notificacion_service
+    from app.repositories.notificacion_repository import NotificacionRepository
+    
+    pago_repo = PagoTransaccionRepository(db)
 
-    rechazar_pago(pago_id, db)
-    notificacion_service.notificar_fallo_pago(usuario_id, reserva_id, db)
+    rechazar_pago(
+        pago_id,
+        pago_repo
+    )
+    
+    repo_notificacion = NotificacionRepository(db)
+
+    notificacion_service.notificar_fallo_pago(
+        usuario_id,
+        reserva_id,
+        repo_notificacion
+    )
+    
     return {"mensaje": "Pago rechazado. El cliente puede reintentar."}
-
 
 def obtener_comprobante(reserva_id: int, db: Session) -> Comprobante:
     """Retorna el comprobante de una reserva confirmada."""
@@ -133,30 +187,34 @@ def obtener_comprobante(reserva_id: int, db: Session) -> Comprobante:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
     return comprobante
 
-
 def emitir_comprobante(
     reserva_id: int,
-    pago_id:    int,
-    tipo:       str,
-    db:         Session
+    pago_id: int,
+    tipo: str,
+    db: Session
 ) -> Comprobante:
-    ultimo = db.query(Comprobante).order_by(Comprobante.id.desc()).first()
-    correlativo = (ultimo.id + 1) if ultimo else 1
-    serie       = "B001" if tipo == "BOLETA" else "F001"
-    numero      = f"{serie}-{str(correlativo).zfill(8)}"
+
+    serie = "B001" if tipo == "BOLETA" else "F001"
 
     comprobante = Comprobante(
-        reserva_id         = reserva_id,
-        pago_id            = pago_id,
-        tipo               = tipo,
-        numero_comprobante = numero,
-        url_pdf            = None,
+        reserva_id=reserva_id,
+        pago_id=pago_id,
+        tipo=tipo,
+        numero_comprobante="TEMP",
+        url_pdf=None,
     )
+
     db.add(comprobante)
+    db.flush()
+
+    comprobante.numero_comprobante = (
+        f"{serie}-{str(comprobante.id).zfill(8)}"
+    )
+
     db.commit()
     db.refresh(comprobante)
+    
     return comprobante
-
 
 def iniciar_pago_mercadopago(
     datos: PagoCreate, 
@@ -169,8 +227,11 @@ def iniciar_pago_mercadopago(
     1. Registra el pago en estado PENDIENTE en BD.
     2. Solicita el link de pago a Mercado Pago.
     """
-    # 1. Usamos tu función existente para guardar en BD (estado PENDIENTE)
-    pago = procesar_pago(datos, db)
+    pago_repo = PagoTransaccionRepository(db)
+    reserva_repo = ReservaRepository(db)
+    
+    # 1. Usamos el patrón de repositorios para guardar en BD (estado PENDIENTE)
+    pago = procesar_pago(datos, pago_repo, reserva_repo)
     
     # 2. Generamos el link de pago
     try:
@@ -184,9 +245,8 @@ def iniciar_pago_mercadopago(
         return url_pago
     except Exception as e:
         # Si Mercado Pago falla, rechazamos el pago internamente para mantener consistencia
-        rechazar_pago(pago_id=pago.id, db=db)
+        rechazar_pago(pago_id=pago.id, pago_repo=pago_repo)
         raise HTTPException(status_code=502, detail="Error al generar pasarela de pago")
-
 
 def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
     """
