@@ -14,7 +14,16 @@ from app.domain.common.enums import (
 )
 
 
-class PagoCreate(BaseModel):
+class IniciarPagoMPRequest(BaseModel):
+    tipo_pago: TipoPago
+    monto: float = Field(..., gt=0)
+    metodo_pago: MetodoPago
+    titulo_evento: str
+    reserva_temp_id: str
+    codigo_transaccion: Optional[str] = None
+
+class IniciarPagoMPResponse(BaseModel):
+    url_pago: str
     reserva_id: int
     tipo_pago: TipoPago
     monto: float = Field(..., gt=0)

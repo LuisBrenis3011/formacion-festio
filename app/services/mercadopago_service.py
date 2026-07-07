@@ -12,18 +12,20 @@ class MercadoPagoClient:
 
     def generar_preferencia(
         self,
-        pago_id: int,
+        external_reference: str,
         monto: float,
         titulo_evento: str,
         email_cliente: str,
         reserva_temp_id: str,
+        usuario_id: int,
+        metodo_pago: str = "TARJETA",
     ) -> str:
         frontend = settings.FRONTEND_URL.rstrip("/")
 
         preference_data = {
             "items": [
                 {
-                    "id": str(pago_id),
+                    "id": external_reference,
                     "title": titulo_evento,
                     "quantity": 1,
                     "unit_price": float(monto),
@@ -39,9 +41,11 @@ class MercadoPagoClient:
                 "pending": f"{frontend}/pago-pendiente",
             },
             "auto_return": "approved",
-            "external_reference": str(pago_id),
+            "external_reference": external_reference,
             "metadata": {
                 "reserva_temp_id": reserva_temp_id,
+                "usuario_id": usuario_id,
+                "metodo_pago": metodo_pago,
             },
         }
 
