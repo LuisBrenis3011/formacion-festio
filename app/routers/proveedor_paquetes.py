@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.core.dependencies import get_current_proveedor
 from app.domain.usuarios.models import Proveedor
@@ -28,12 +28,11 @@ router = APIRouter()
 
 @router.get("/", response_model=List[PaqueteOut])
 def listar_paquetes(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
     proveedor: Proveedor = Depends(get_current_proveedor),
-    repo: PaqueteRepository = Depends(get_paquete_repo),
+    repo: PaqueteRepository = Depends(get_paquete_repo)
 ):
-    return paq_service.listar_paquetes(proveedor, repo, skip=skip, limit=limit)
+    """Lista todos los paquetes propios del proveedor."""
+    return paq_service.listar_paquetes(proveedor, repo)
 
 
 @router.get("/{paquete_id}", response_model=PaqueteOut)

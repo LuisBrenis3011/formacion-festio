@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import HTTPException
@@ -16,8 +16,9 @@ from app.repositories.catalogo_repository import CategoriaRepository, TematicaRe
 
 # ── Categorías ────────────────────────────────────────────────────────────────
 
-def listar_categorias(repo: CategoriaRepository, skip: int = 0, limit: int = 100) -> List[Categoria]:
-    return repo.get_all(skip=skip, limit=limit)
+def listar_categorias(repo: CategoriaRepository) -> List[Categoria]:
+    """Retorna todas las categorías."""
+    return repo.get_all()
 
 
 def crear_categoria(datos: CategoriaCreate, repo: CategoriaRepository) -> Categoria:
@@ -27,11 +28,12 @@ def crear_categoria(datos: CategoriaCreate, repo: CategoriaRepository) -> Catego
 
 # ── Temáticas ─────────────────────────────────────────────────────────────────
 
-def listar_tematicas(categoria_id: Optional[int], repo: TematicaRepository, skip: int = 0, limit: int = 100) -> List[Tematica]:
+def listar_tematicas(categoria_id: Optional[int], repo: TematicaRepository) -> List[Tematica]:
+    """Lista temáticas. Filtra por categoría si se indica."""
     query = repo.db.query(Tematica)
     if categoria_id:
         query = query.filter(Tematica.categoria_id == categoria_id)
-    return query.offset(skip).limit(limit).all()
+    return query.all()
 
 
 def crear_tematica(datos: TematicaCreate, repo: TematicaRepository) -> Tematica:
@@ -45,9 +47,8 @@ def listar_servicios(
     proveedor_id: Optional[int],
     categoria_id: Optional[int],
     repo: ServicioProductoRepository,
-    skip: int = 0,
-    limit: int = 100,
 ) -> List[ServicioProducto]:
+    """Lista servicios/productos activos. Filtra por proveedor o categoría."""
     query = repo.db.query(ServicioProducto).filter(
         ServicioProducto.estado == EstadoBasico.ACTIVO,
         ServicioProducto.deleted_at == None
@@ -56,7 +57,7 @@ def listar_servicios(
         query = query.filter(ServicioProducto.proveedor_id == proveedor_id)
     if categoria_id:
         query = query.filter(ServicioProducto.categoria_id == categoria_id)
-    return query.offset(skip).limit(limit).all()
+    return query.all()
 
 
 def obtener_servicio(servicio_id: int, repo: ServicioProductoRepository) -> ServicioProducto:
@@ -91,5 +92,5 @@ def eliminar_servicio(servicio_id: int, repo: ServicioProductoRepository) -> Non
     if not servicio:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
 
-    servicio.deleted_at = datetime.now(UTC)
+    servicio.deleted_at = datetime.utcnow()
     repo.db.commit()

@@ -1,3 +1,4 @@
+from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.domain.common.enums import EstadoBasico, RolUsuario
 from app.domain.usuarios.models import Usuario, Cliente, Proveedor
@@ -12,14 +13,9 @@ from app.repositories.usuario_repository import UsuarioRepository, ClienteReposi
 def registrar_usuario(
     datos: UsuarioCreate,
     usuario_repo: 'UsuarioRepository',
-    cliente_repo: 'ClienteRepository'
+    cliente_repo: 'ClienteRepository',
+    proveedor_repo: 'ProveedorRepository'
 ) -> Usuario:
-    if datos.rol != RolUsuario.CLIENTE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El registro publico solo permite cuentas CLIENTE. Use /api/auth/registro-proveedor para proveedores.",
-        )
-
     existe = usuario_repo.get_by_email(datos.email)
     if existe:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
@@ -35,8 +31,11 @@ def registrar_usuario(
     usuario_repo.db.add(usuario)
     usuario_repo.db.flush()  # Obtener el ID antes del commit
 
-    # El registro publico solo crea perfiles de cliente.
-    cliente_repo.db.add(Cliente(usuario_id=usuario.id))
+    # Crear perfil según el rol
+    if datos.rol == RolUsuario.CLIENTE:
+        cliente_repo.db.add(Cliente(usuario_id=usuario.id))
+    elif datos.rol == RolUsuario.PROVEEDOR:
+        proveedor_repo.db.add(Proveedor(usuario_id=usuario.id, nombre_empresa=datos.nombre, ruc="", distrito=""))
 
     usuario_repo.db.commit()
     usuario_repo.db.refresh(usuario)

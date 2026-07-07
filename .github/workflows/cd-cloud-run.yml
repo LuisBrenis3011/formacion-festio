@@ -75,7 +75,7 @@ jobs:
             --max-instances "${{ vars.CLOUD_RUN_MAX_INSTANCES }}" \
             --port 8080 \
             --env-vars-file cloudrun.deploy.env.yaml \
-            --set-secrets DATABASE_URL=festio-database-url:latest,REDIS_URL=festio-redis-url:latest,SECRET_KEY=festio-secret-key:latest,GEMINI_API_KEY=festio-gemini-api-key:latest,PAYMENT_WEBHOOK_SECRET=PAYMENT_WEBHOOK_SECRET:latest
+            --set-secrets DATABASE_URL=festio-database-url:latest,REDIS_URL=festio-redis-url:latest,SECRET_KEY=festio-secret-key:latest,GEMINI_API_KEY=festio-gemini-api-key:latest
 
       - name: Smoke check
         run: |

@@ -5,15 +5,15 @@ from fastapi import HTTPException
 from app.domain.common.enums import EstadoBasico
 from app.domain.personal.models import Personal, PersonalRol
 from app.domain.personal.schemas import PersonalCreate, PersonalUpdate
-from app.domain.usuarios.models import Proveedor
 from app.repositories.personal_repository import PersonalRepository, PersonalRolRepository
 
 
-def listar_personal_proveedor(proveedor_id: int, repo: PersonalRepository, skip: int = 0, limit: int = 100) -> List[Personal]:
+def listar_personal_proveedor(proveedor_id: int, repo: PersonalRepository) -> List[Personal]:
+    """Lista todo el personal activo de un proveedor con sus roles."""
     return repo.db.query(Personal).filter(
         Personal.proveedor_id == proveedor_id,
         Personal.estado == EstadoBasico.ACTIVO
-    ).offset(skip).limit(limit).all()
+    ).all()
 
 
 def obtener_personal(personal_id: int, repo: PersonalRepository) -> Personal:
@@ -24,22 +24,10 @@ def obtener_personal(personal_id: int, repo: PersonalRepository) -> Personal:
     return persona
 
 
-def crear_personal(
-    datos: PersonalCreate,
-    proveedor: Proveedor,
-    repo: PersonalRepository,
-    rol_repo: PersonalRolRepository,
-) -> Personal:
+def crear_personal(datos: PersonalCreate, repo: PersonalRepository, rol_repo: PersonalRolRepository) -> Personal:
     """Crea una persona con sus roles en una sola operación."""
-    # El proveedor del body debe coincidir con el proveedor resuelto desde el token.
-    if datos.proveedor_id != proveedor.id:
-        raise HTTPException(
-            status_code=403,
-            detail="No puede crear personal para otro proveedor",
-        )
-
     persona = Personal(
-        proveedor_id=proveedor.id,
+        proveedor_id=datos.proveedor_id,
         nombre=datos.nombre,
         telefono=datos.telefono,
     )
@@ -60,41 +48,20 @@ def crear_personal(
 
 
 def actualizar_personal(
-    personal_id: int,
-    datos: PersonalUpdate,
-    proveedor: Proveedor,
-    repo: PersonalRepository,
+    personal_id: int, datos: PersonalUpdate, repo: PersonalRepository
 ) -> Personal:
     """Actualiza los campos enviados del personal. Lanza 404 si no existe."""
-    persona = _obtener_personal_proveedor(personal_id, proveedor, repo)
-
-    # Primero cargamos el registro propio del proveedor y luego aplicamos solo los campos enviados.
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
-        setattr(persona, campo, valor)
-
-    repo.db.commit()
-    repo.db.refresh(persona)
-    return persona
-
-
-def eliminar_personal(personal_id: int, proveedor: Proveedor, repo: PersonalRepository) -> None:
-    """Soft delete: marca como INACTIVO sin borrar el registro."""
-    persona = _obtener_personal_proveedor(personal_id, proveedor, repo)
-
-    persona.estado = EstadoBasico.INACTIVO
-    repo.db.commit()
-
-
-def _obtener_personal_proveedor(
-    personal_id: int,
-    proveedor: Proveedor,
-    repo: PersonalRepository,
-) -> Personal:
-    # Centraliza el filtro de ownership para que update/delete no operen sobre personal ajeno por ID.
-    persona = repo.db.query(Personal).filter(
-        Personal.id == personal_id,
-        Personal.proveedor_id == proveedor.id,
-    ).first()
+    persona = repo.update(personal_id, datos)
     if not persona:
         raise HTTPException(status_code=404, detail="Personal no encontrado")
     return persona
+
+
+def eliminar_personal(personal_id: int, repo: PersonalRepository) -> None:
+    """Soft delete: marca como INACTIVO sin borrar el registro."""
+    persona = repo.get(personal_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Personal no encontrado")
+
+    persona.estado = EstadoBasico.INACTIVO
+    repo.db.commit()

@@ -20,7 +20,8 @@ from app.repositories.catalogo_repository import (
 )
 
 
-def listar_paquetes(proveedor: Proveedor, repo: PaqueteRepository, skip: int = 0, limit: int = 100) -> List[Paquete]:
+def listar_paquetes(proveedor: Proveedor, repo: PaqueteRepository) -> List[Paquete]:
+    """Lista paquetes del proveedor con detalles cargados."""
     return (
         repo.db.query(Paquete)
         .options(
@@ -31,8 +32,6 @@ def listar_paquetes(proveedor: Proveedor, repo: PaqueteRepository, skip: int = 0
             Paquete.estado == EstadoBasico.ACTIVO,
         )
         .order_by(Paquete.id.desc())
-        .offset(skip)
-        .limit(limit)
         .all()
     )
 
