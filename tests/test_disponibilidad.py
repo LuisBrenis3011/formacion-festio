@@ -252,18 +252,7 @@ def test_consultar_proveedor_inexistente(client, auth_headers_cliente):
 # ---------------------------------------------------------------------------
 # 5. Bloqueo temporal (Redis) como ocupación — BUG CONFIRMADO
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "TASK-BIZ-08 (sugerido): consultar_disponibilidad() no consulta "
-        "bloqueo_service.listar_bloqueos(), que existe justamente para "
-        "esto segun su propio docstring ('considerar pre-reservas en "
-        "disponibilidad'). Un prebloqueo activo de 10 minutos sobre la "
-        "unica unidad de stock no se descuenta, y un segundo cliente "
-        "consultando disponibilidad en paralelo ve el item como "
-        "disponible cuando en realidad ya esta comprometido."
-    ),
-)
+
 def test_bloqueo_temporal_cuenta_como_ocupacion(
     client, db_session, usuario_proveedor, auth_headers_cliente
 ):

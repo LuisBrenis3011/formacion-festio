@@ -21,6 +21,7 @@ from app.repositories.usuario_repository import ProveedorRepository
 from app.repositories.catalogo_repository import ServicioProductoRepository
 from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
 
+from app.services import bloqueo_service
 
 def consultar_disponibilidad(
     proveedor_id: int,
@@ -59,17 +60,45 @@ def consultar_disponibilidad(
 
         # SUM agregado: maneja múltiples ocupaciones solapadas
         cantidad_ocupada = (
-            ocupacion_sp_repo.db.query(func.coalesce(func.sum(OcupacionServicioProducto.cantidad_ocupada), 0))
+            ocupacion_sp_repo.db.query(
+                func.coalesce(
+                    func.sum(OcupacionServicioProducto.cantidad_ocupada),
+                    0
+                )
+            )
             .filter(
                 OcupacionServicioProducto.servicio_producto_id == servicio.id,
                 OcupacionServicioProducto.fecha_hora_inicio < fecha_fin,
-                OcupacionServicioProducto.fecha_hora_fin    > fecha_inicio,
+                OcupacionServicioProducto.fecha_hora_fin > fecha_inicio,
             )
             .scalar()
         )
+        
+        bloqueos = bloqueo_service.listar_bloqueos()
+        cantidad_bloqueada = 0
+
+        for bloqueo in bloqueos:
+            if bloqueo.get("servicio_producto_id") != servicio.id:
+                continue
+
+            inicio_bloqueo = datetime.fromisoformat(
+                bloqueo["fecha_hora_inicio"]
+            )
+            fin_bloqueo = datetime.fromisoformat(
+                bloqueo["fecha_hora_fin"]
+            )
+
+            if inicio_bloqueo < fecha_fin and fin_bloqueo > fecha_inicio:
+                cantidad_bloqueada += bloqueo.get("cantidad", 0)
 
         stock = int(servicio.stock_maximo_simultaneo or 0)
-        cantidad_disponible = stock - int(cantidad_ocupada)
+
+        cantidad_total_ocupada = (
+            int(cantidad_ocupada)
+            + int(cantidad_bloqueada)
+        )
+
+        cantidad_disponible = stock - cantidad_total_ocupada
 
         if cantidad_disponible < detalle.cantidad:
             items_no_disponibles.append(
