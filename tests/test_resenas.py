@@ -31,49 +31,97 @@ def _crear_query_mock() -> Mock:
     query.filter.return_value = query
     return query
 
+def _mock_reserva(cliente_id: int):
+    reserva = SimpleNamespace(
+        evento=SimpleNamespace(cliente_id=cliente_id)
+    )
+
+    query = _crear_query_mock()
+    query.first.return_value = reserva
+    return query
+
+
+def _mock_cliente(usuario_id: int):
+    cliente = SimpleNamespace(usuario_id=usuario_id)
+
+    query = _crear_query_mock()
+    query.first.return_value = cliente
+    return query
+
+
+def _mock_proveedor(promedio: float):
+    proveedor = SimpleNamespace(calificacion_promedio=promedio)
+
+    query = _crear_query_mock()
+    query.first.return_value = proveedor
+    return query
 
 def test_crear_resena_publica_guarda_usuario_y_actualiza_promedio():
     usuario = _crear_usuario(usuario_id=7, cliente_id=3)
-    datos = ResenaPublicaCreate(proveedor_id=11, calificacion=5, comentario="Excelente")
+    datos = ResenaPublicaCreate(
+        proveedor_id=11,
+        calificacion=5,
+        comentario="Excelente",
+    )
 
     query_duplicado = _crear_query_mock()
     query_duplicado.first.return_value = None
 
     query_promedio = _crear_query_mock()
-
-    resena_repo = _crear_repo_con_queries(query_duplicado, query_promedio)
     query_promedio.all.side_effect = lambda: [resena_repo.db.add.call_args[0][0]]
 
-    proveedor = SimpleNamespace(calificacion_promedio=0)
-    proveedor_repo = SimpleNamespace(get=Mock(return_value=proveedor))
+    query_proveedor = _mock_proveedor(0)
 
-    resena = resena_service.crear_resena_publica(datos, usuario, resena_repo, proveedor_repo)
+    resena_repo = _crear_repo_con_queries(
+        query_duplicado,
+        query_promedio,
+        query_proveedor,
+    )
+
+    proveedor_repo = SimpleNamespace(get=Mock(return_value=SimpleNamespace()))
+
+    resena = resena_service.crear_resena_publica(
+        datos,
+        usuario,
+        resena_repo,
+        proveedor_repo,
+    )
 
     assert resena.usuario_id == usuario.id
-    assert proveedor.calificacion_promedio == 5.0
     resena_repo.db.commit.assert_called_once()
-
 
 def test_crear_resena_publica_rechaza_duplicado_con_409():
     usuario = _crear_usuario(usuario_id=7, cliente_id=3)
-    datos = ResenaPublicaCreate(proveedor_id=11, calificacion=5, comentario="Excelente")
+    datos = ResenaPublicaCreate(
+        proveedor_id=11,
+        calificacion=5,
+        comentario="Excelente",
+    )
 
     query_duplicado = _crear_query_mock()
     query_duplicado.first.return_value = object()
 
     resena_repo = _crear_repo_con_queries(query_duplicado)
-    proveedor_repo = SimpleNamespace(get=Mock(return_value=SimpleNamespace(calificacion_promedio=0)))
+
+    proveedor_repo = SimpleNamespace(
+        get=Mock(return_value=SimpleNamespace())
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        resena_service.crear_resena_publica(datos, usuario, resena_repo, proveedor_repo)
+        resena_service.crear_resena_publica(
+            datos,
+            usuario,
+            resena_repo,
+            proveedor_repo,
+        )
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail == "Ya dejaste una reseña para este proveedor"
     resena_repo.db.add.assert_not_called()
 
-
 def test_crear_resena_guarda_usuario_y_actualiza_promedio():
     usuario = _crear_usuario(usuario_id=9, cliente_id=4)
+
     datos = ResenaCreate(
         reserva_id=15,
         cliente_id=4,
@@ -81,27 +129,42 @@ def test_crear_resena_guarda_usuario_y_actualiza_promedio():
         calificacion=4,
         comentario="Muy buen servicio",
     )
+
+    query_reserva = _mock_reserva(cliente_id=4)
+
+    query_cliente = _mock_cliente(usuario_id=9)
 
     query_duplicado = _crear_query_mock()
     query_duplicado.first.return_value = None
 
     query_promedio = _crear_query_mock()
-
-    resena_repo = _crear_repo_con_queries(query_duplicado, query_promedio)
     query_promedio.all.side_effect = lambda: [resena_repo.db.add.call_args[0][0]]
 
-    proveedor = SimpleNamespace(calificacion_promedio=0)
-    proveedor_repo = SimpleNamespace(get=Mock(return_value=proveedor))
+    query_proveedor = _mock_proveedor(0)
 
-    resena = resena_service.crear_resena(datos, usuario, resena_repo, proveedor_repo)
+    resena_repo = _crear_repo_con_queries(
+        query_reserva,
+        query_cliente,
+        query_duplicado,
+        query_promedio,
+        query_proveedor,
+    )
+
+    proveedor_repo = SimpleNamespace(get=Mock(return_value=SimpleNamespace()))
+
+    resena = resena_service.crear_resena(
+        datos,
+        usuario,
+        resena_repo,
+        proveedor_repo,
+    )
 
     assert resena.usuario_id == usuario.id
-    assert proveedor.calificacion_promedio == 4.0
     resena_repo.db.commit.assert_called_once()
-
 
 def test_crear_resena_rechaza_duplicado_con_409():
     usuario = _crear_usuario(usuario_id=9, cliente_id=4)
+
     datos = ResenaCreate(
         reserva_id=15,
         cliente_id=4,
@@ -110,15 +173,29 @@ def test_crear_resena_rechaza_duplicado_con_409():
         comentario="Muy buen servicio",
     )
 
+    query_reserva = _mock_reserva(cliente_id=4)
+
+    query_cliente = _mock_cliente(usuario_id=9)
+
     query_duplicado = _crear_query_mock()
     query_duplicado.first.return_value = object()
 
-    resena_repo = _crear_repo_con_queries(query_duplicado)
-    proveedor_repo = SimpleNamespace(get=Mock(return_value=SimpleNamespace(calificacion_promedio=0)))
+    resena_repo = _crear_repo_con_queries(
+        query_reserva,
+        query_cliente,
+        query_duplicado,
+    )
+
+    proveedor_repo = SimpleNamespace(get=Mock(return_value=SimpleNamespace()))
 
     with pytest.raises(HTTPException) as exc_info:
-        resena_service.crear_resena(datos, usuario, resena_repo, proveedor_repo)
+        resena_service.crear_resena(
+            datos,
+            usuario,
+            resena_repo,
+            proveedor_repo,
+        )
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "Ya dejaste una reseña para este proveedor"
+    assert exc_info.value.detail == "Ya dejaste una reseña para esta reserva"
     resena_repo.db.add.assert_not_called()

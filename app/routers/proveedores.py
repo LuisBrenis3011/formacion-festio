@@ -1,9 +1,12 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_proveedor, require_role
+from app.database import get_db
 from app.domain.common.enums import RolUsuario
+from app.domain.resenas.schemas import MarketAnalyticsOut
 from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
@@ -13,7 +16,6 @@ from app.repositories.usuario_repository import ProveedorRepository, get_proveed
 from app.repositories.catalogo_repository import ServicioProductoRepository, PaqueteRepository, get_servicio_producto_repo, get_paquete_repo
 from app.repositories.reserva_repository import ReservaRepository, get_reserva_repo
 from app.repositories.resena_repository import ResenaRepository, get_resena_repo
-from app.domain.resenas.schemas import MarketAnalyticsOut
 from app.services import proveedor_service
 from app.services import resena_service
 
@@ -67,6 +69,7 @@ def mi_market_analytics(
 ):
     """Analytics de mercado del proveedor: calificaciones, top paquetes y reseñas recientes."""
     return resena_service.obtener_market_analytics(proveedor, resena_repo, reserva_repo)
+
 
 @router.get("/{proveedor_id}", response_model=ProveedorOut)
 def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository = Depends(get_proveedor_repo)):

@@ -21,7 +21,8 @@ class ResenaPublicaOut(BaseModel):
     nombre_usuario: str  # nombre del usuario que dejó la reseña
 
     model_config = ConfigDict(from_attributes=True)
-    
+
+
 class TopPaqueteOut(BaseModel):
     paquete_id: int
     nombre: str
