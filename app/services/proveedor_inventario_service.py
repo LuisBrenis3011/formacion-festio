@@ -2,7 +2,7 @@
 Lógica de negocio para el inventario del proveedor autenticado.
 Reutiliza el modelo ServicioProducto pero con scope al proveedor logueado.
 """
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List
 
 from fastapi import HTTPException
@@ -14,8 +14,7 @@ from app.domain.catalogo.schemas import ProveedorServicioCreate, ProveedorServic
 from app.repositories.catalogo_repository import CategoriaRepository, ServicioProductoRepository
 
 
-def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository) -> List[ServicioProducto]:
-    """Lista todos los servicios/productos del proveedor (activos y no eliminados)."""
+def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository, skip: int = 0, limit: int = 100) -> List[ServicioProducto]:
     return (
         repo.db.query(ServicioProducto)
         .filter(
@@ -23,6 +22,8 @@ def listar_inventario(proveedor: Proveedor, repo: ServicioProductoRepository) ->
             ServicioProducto.deleted_at == None,
         )
         .order_by(ServicioProducto.id.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
@@ -87,5 +88,5 @@ def actualizar_servicio(
 def eliminar_servicio(servicio_id: int, proveedor: Proveedor, repo: ServicioProductoRepository) -> None:
     """Soft delete: guarda la fecha de eliminación."""
     servicio = obtener_servicio(servicio_id, proveedor, repo)
-    servicio.deleted_at = datetime.utcnow()
+    servicio.deleted_at = datetime.now(UTC)
     repo.db.commit()

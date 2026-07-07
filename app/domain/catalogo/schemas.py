@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.domain.common.enums import EstadoBasico, TipoItemCatalogo
 
@@ -15,8 +15,7 @@ class CategoriaOut(BaseModel):
     nombre: str
     descripcion: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TematicaCreate(BaseModel):
@@ -31,8 +30,7 @@ class TematicaOut(BaseModel):
     nombre: str
     imagen_referencial: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Servicios / Productos (Admin genérico) ────────────────────────────────────
@@ -68,8 +66,7 @@ class ServicioProductoOut(BaseModel):
     duracion_base_horas: Optional[float]
     estado: EstadoBasico
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Detalle Paquete ───────────────────────────────────────────────────────────
@@ -86,8 +83,7 @@ class DetallePaqueteOut(BaseModel):
     cantidad_incluida: int
     servicio_nombre: Optional[str] = None  # para mostrar en frontend
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Paquetes (Admin genérico) ─────────────────────────────────────────────────
@@ -120,8 +116,7 @@ class PaqueteOut(BaseModel):
     estado: EstadoBasico
     detalles: List[DetallePaqueteOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

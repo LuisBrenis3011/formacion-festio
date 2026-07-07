@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from app.core.dependencies import get_current_user
 from app.domain.usuarios.models import Usuario
 from app.domain.usuarios.schemas import (
@@ -11,22 +11,27 @@ from app.repositories.usuario_repository import (
 )
 from app.services import auth_service
 
+from app.core.limiter import limiter
+
 router = APIRouter()
 
 
 @router.post("/registro", response_model=UsuarioOut, status_code=201)
+@limiter.limit("5/minute")
 def registrar(
+    request: Request,
     datos: UsuarioCreate,
     usuario_repo: UsuarioRepository = Depends(get_usuario_repo),
-    cliente_repo: ClienteRepository = Depends(get_cliente_repo),
-    proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo)
+    cliente_repo: ClienteRepository = Depends(get_cliente_repo)
 ):
-    """Registra un nuevo usuario (cliente o proveedor)."""
-    return auth_service.registrar_usuario(datos, usuario_repo, cliente_repo, proveedor_repo)
+    """Registra un nuevo cliente desde el flujo publico."""
+    return auth_service.registrar_usuario(datos, usuario_repo, cliente_repo)
 
 
 @router.post("/registro-proveedor", response_model=TokenResponse, status_code=201)
+@limiter.limit("5/minute")
 def registrar_proveedor(
+    request: Request,
     datos: RegistroProveedorRequest,
     usuario_repo: UsuarioRepository = Depends(get_usuario_repo),
     proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo)
@@ -36,7 +41,9 @@ def registrar_proveedor(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     datos: LoginRequest,
     usuario_repo: UsuarioRepository = Depends(get_usuario_repo)
 ):

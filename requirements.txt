@@ -14,3 +14,7 @@ pydantic-settings==2.2.1
 python-multipart==0.0.9
 google-genai
 python-dotenv
+mercadopago
+pytest==8.2.0
+pytest-asyncio==0.23.6
+slowapi==0.1.9

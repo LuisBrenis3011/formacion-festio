@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_proveedor
 from app.domain.usuarios.models import Proveedor
@@ -22,11 +22,12 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ServicioProductoOut])
 def listar_inventario(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     proveedor: Proveedor = Depends(get_current_proveedor),
-    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo)
+    repo: ServicioProductoRepository = Depends(get_servicio_producto_repo),
 ):
-    """Lista todos los servicios/productos (activos e inactivos) del proveedor."""
-    return inv_service.listar_inventario(proveedor, repo)
+    return inv_service.listar_inventario(proveedor, repo, skip=skip, limit=limit)
 
 
 @router.get("/{servicio_id}", response_model=ServicioProductoOut)

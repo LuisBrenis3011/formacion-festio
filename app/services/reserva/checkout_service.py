@@ -1,6 +1,6 @@
 import uuid
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, UTC
 from fastapi import HTTPException
 
 from app.domain.reservas.models import Evento, Reserva, DetalleReserva
@@ -202,7 +202,7 @@ def confirmar_checkout_simulado(
         metodo_pago=metodo_pago,
         estado=EstadoPago.APROBADO,
         codigo_transaccion=f"SIM-{uuid.uuid4().hex[:12].upper()}",
-        fecha_pago=datetime.utcnow(),
+        fecha_pago=datetime.now(UTC),
     )
     pago_repo.db.add(pago)
     pago_repo.db.commit()

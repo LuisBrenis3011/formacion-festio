@@ -27,6 +27,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/festio_ci
       REDIS_URL: redis://127.0.0.1:6379
       SECRET_KEY: ci-secret
+      PAYMENT_WEBHOOK_SECRET: ci-webhook-secret
       GEMINI_API_KEY: ci-dummy-key
       APP_NAME: Festio
       DEBUG: "False"

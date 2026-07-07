@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.domain.common.enums import (
     CanalNotificacion,
@@ -21,7 +21,6 @@ class PagoCreate(BaseModel):
     metodo_pago: MetodoPago
     codigo_transaccion: Optional[str] = None
 
-
 class PagoOut(BaseModel):
     id: int
     reserva_id: int
@@ -32,9 +31,7 @@ class PagoOut(BaseModel):
     codigo_transaccion: Optional[str]
     fecha_pago: datetime
 
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class ComprobanteOut(BaseModel):
     id: int
@@ -45,8 +42,7 @@ class ComprobanteOut(BaseModel):
     fecha_emision: datetime
     url_pdf: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResenaCreate(BaseModel):
@@ -57,17 +53,21 @@ class ResenaCreate(BaseModel):
     comentario: Optional[str] = Field(None, max_length=500)
 
 
+class ResenaUpdate(BaseModel):
+    calificacion: Optional[int] = Field(None, ge=1, le=5)
+    comentario: Optional[str] = Field(None, max_length=500)
+
+
 class ResenaOut(BaseModel):
     id: int
-    reserva_id: int
-    cliente_id: int
+    reserva_id: Optional[int] = None
+    cliente_id: Optional[int] = None
     proveedor_id: int
     calificacion: int
     comentario: Optional[str]
     fecha: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NotificacionCreate(BaseModel):
@@ -88,6 +88,5 @@ class NotificacionOut(BaseModel):
     estado: EstadoNotificacion
     fecha_envio: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
