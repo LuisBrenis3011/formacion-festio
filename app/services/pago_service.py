@@ -9,7 +9,7 @@ from app.domain.pagos.models import PagoTransaccion, Comprobante
 from app.domain.reservas.models import Reserva, Evento, DetalleReserva
 from app.domain.usuarios.models import Cliente, Proveedor, Usuario
 from app.domain.pagos.schemas import PagoCreate, IniciarPagoMPRequest
-from app.services.mercadopago_service import mp_client
+from app.services.mercadopago_service import mp_client, MercadoPagoError
 
 logger = logging.getLogger(__name__)
 
@@ -228,16 +228,19 @@ def iniciar_pago_mercadopago(
     Genera la preferencia de pago en Mercado Pago y retorna la URL de checkout.
     No crea registros en BD todavia; eso se hara cuando el webhook confirme el pago.
     """
-    url_pago = mp_client.generar_preferencia(
-        external_reference=datos.reserva_temp_id,
-        monto=datos.monto,
-        titulo_evento=datos.titulo_evento,
-        email_cliente=email_cliente,
-        reserva_temp_id=datos.reserva_temp_id,
-        usuario_id=usuario_id,
-        metodo_pago=datos.metodo_pago.value,
-    )
-    return url_pago
+    try:
+        url_pago = mp_client.generar_preferencia(
+            external_reference=datos.reserva_temp_id,
+            monto=datos.monto,
+            titulo_evento=datos.titulo_evento,
+            email_cliente=email_cliente,
+            reserva_temp_id=datos.reserva_temp_id,
+            usuario_id=usuario_id,
+            metodo_pago=datos.metodo_pago.value,
+        )
+        return url_pago
+    except MercadoPagoError:
+        raise HTTPException(status_code=502, detail="Error al generar pasarela de pago")
 
 def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
     """
@@ -249,11 +252,6 @@ def procesar_webhook_mercadopago(datos_webhook: dict, db: Session):
       4. Si rejected  -> libera bloqueo Redis.
     """
     from app.services import bloqueo_service
-    from app.services.reserva import checkout_service, calculo_service
-    from app.services import notificacion_service
-    from app.repositories.catalogo_repository import ServicioProductoRepository
-    from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
-    from app.repositories.notificacion_repository import NotificacionRepository
 
     mp_payment_id = datos_webhook.get("data", {}).get("id")
     if not mp_payment_id:

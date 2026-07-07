@@ -24,6 +24,8 @@ class IniciarPagoMPRequest(BaseModel):
 
 class IniciarPagoMPResponse(BaseModel):
     url_pago: str
+
+class PagoCreate(BaseModel):
     reserva_id: int
     tipo_pago: TipoPago
     monto: float = Field(..., gt=0)
