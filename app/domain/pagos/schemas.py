@@ -53,10 +53,15 @@ class ResenaCreate(BaseModel):
     comentario: Optional[str] = Field(None, max_length=500)
 
 
+class ResenaUpdate(BaseModel):
+    calificacion: Optional[int] = Field(None, ge=1, le=5)
+    comentario: Optional[str] = Field(None, max_length=500)
+
+
 class ResenaOut(BaseModel):
     id: int
-    reserva_id: int
-    cliente_id: int
+    reserva_id: Optional[int] = None
+    cliente_id: Optional[int] = None
     proveedor_id: int
     calificacion: int
     comentario: Optional[str]
