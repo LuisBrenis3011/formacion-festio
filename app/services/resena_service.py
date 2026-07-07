@@ -81,11 +81,6 @@ def crear_resena_publica(
     resena_repo: ResenaRepository,
     proveedor_repo: ProveedorRepository
 ) -> Resena:
-    if not (1 <= datos.calificacion <= 5):
-        raise HTTPException(
-            status_code=400, detail="La calificación debe ser entre 1 y 5"
-        )
-
     proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
@@ -116,11 +111,6 @@ def crear_resena(
     resena_repo: ResenaRepository,
     proveedor_repo: ProveedorRepository
 ) -> Resena:
-    if not (1 <= datos.calificacion <= 5):
-        raise HTTPException(
-            status_code=400, detail="La calificación debe ser entre 1 y 5"
-        )
-
     _validar_resena_unica(usuario, datos.proveedor_id, resena_repo)
 
     resena = Resena(**datos.model_dump(), usuario_id=usuario.id)
