@@ -22,6 +22,12 @@ from app.repositories.reserva_repository import get_evento_repo, get_reserva_rep
 from app.repositories.pago_repository import get_pago_transaccion_repo
 from app.repositories.disponibilidad_repository import get_ocupacion_servicio_producto_repo, get_ocupacion_global_proveedor_repo
 
+from pydantic import BaseModel, Field
+from app.core.dependencies import get_current_user, get_optional_current_user, get_current_proveedor
+from app.domain.usuarios.models import Usuario, Proveedor
+from app.domain.common.enums import MetodoPago
+from app.repositories.pago_repository import get_pago_transaccion_repo
+
 router = APIRouter()
 
 
@@ -171,3 +177,29 @@ def cancelar_reserva(
 ):
     """Cancela una reserva confirmada sin ocultarla del historial."""
     return reserva_gestion_service.cancelar_reserva(reserva_id, usuario, reserva_repo)
+
+class CompletarReservaRequest(BaseModel):
+    metodo_pago: MetodoPago = MetodoPago.EFECTIVO
+    codigo_transaccion: Optional[str] = Field(None, max_length=150)
+
+
+class CompletarReservaResponse(BaseModel):
+    reserva_id: int
+    estado: str
+    pago_id: int
+    monto_pagado: float
+    mensaje: str
+
+
+@router.patch("/{reserva_id}/completar", response_model=CompletarReservaResponse)
+def completar_reserva(
+    reserva_id: int,
+    datos: CompletarReservaRequest,
+    proveedor: Proveedor = Depends(get_current_proveedor),
+    reserva_repo = Depends(get_reserva_repo),
+    pago_repo = Depends(get_pago_transaccion_repo),
+):
+    """Solo el proveedor dueño puede marcar su reserva como completada."""
+    return reserva_gestion_service.completar_reserva(
+        reserva_id, datos.metodo_pago, datos.codigo_transaccion, proveedor, reserva_repo, pago_repo
+    )
