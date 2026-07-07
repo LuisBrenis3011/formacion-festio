@@ -1,13 +1,36 @@
 from typing import List
 
 from fastapi import HTTPException
+from sqlalchemy import or_
 
 from app.domain.resenas.models import Resena
-from app.domain.usuarios.models import Proveedor, Usuario
+from app.domain.usuarios.models import Usuario
 from app.domain.pagos.schemas import ResenaCreate
 from app.domain.resenas.schemas import ResenaPublicaCreate, ResenaPublicaOut
 from app.repositories.resena_repository import ResenaRepository
 from app.repositories.usuario_repository import ProveedorRepository, UsuarioRepository
+
+
+_MENSAJE_RESENA_DUPLICADA = "Ya dejaste una reseña para este proveedor"
+
+
+def _validar_resena_unica(usuario: Usuario, proveedor_id: int, resena_repo: ResenaRepository) -> None:
+    filtros_usuario = [Resena.usuario_id == usuario.id]
+
+    cliente = getattr(usuario, "cliente", None)
+    if cliente is not None:
+        filtros_usuario.append(Resena.cliente_id == cliente.id)
+
+    resena_existente = (
+        resena_repo.db.query(Resena)
+        .filter(
+            Resena.proveedor_id == proveedor_id,
+            or_(*filtros_usuario),
+        )
+        .first()
+    )
+    if resena_existente:
+        raise HTTPException(status_code=409, detail=_MENSAJE_RESENA_DUPLICADA)
 
 
 def listar_resenas_proveedor(proveedor_id: int, repo: ResenaRepository) -> List[Resena]:
@@ -58,14 +81,11 @@ def crear_resena_publica(
     resena_repo: ResenaRepository,
     proveedor_repo: ProveedorRepository
 ) -> Resena:
-    if not (1 <= datos.calificacion <= 5):
-        raise HTTPException(
-            status_code=400, detail="La calificación debe ser entre 1 y 5"
-        )
-
     proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+
+    _validar_resena_unica(usuario, datos.proveedor_id, resena_repo)
 
     resena = Resena(
         usuario_id=usuario.id,
@@ -87,15 +107,13 @@ def crear_resena_publica(
 
 def crear_resena(
     datos: ResenaCreate,
+    usuario: Usuario,
     resena_repo: ResenaRepository,
     proveedor_repo: ProveedorRepository
 ) -> Resena:
-    if not (1 <= datos.calificacion <= 5):
-        raise HTTPException(
-            status_code=400, detail="La calificación debe ser entre 1 y 5"
-        )
+    _validar_resena_unica(usuario, datos.proveedor_id, resena_repo)
 
-    resena = Resena(**datos.model_dump())
+    resena = Resena(**datos.model_dump(), usuario_id=usuario.id)
     resena_repo.db.add(resena)
     resena_repo.db.flush()
 

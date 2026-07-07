@@ -163,5 +163,5 @@ def cancelar_reserva(
     reserva_repo = Depends(get_reserva_repo),
     usuario: Usuario = Depends(get_current_user),
 ):
-    """Cancela una reserva confirmada (soft delete)."""
+    """Cancela una reserva confirmada sin ocultarla del historial."""
     return reserva_gestion_service.cancelar_reserva(reserva_id, usuario, reserva_repo)
