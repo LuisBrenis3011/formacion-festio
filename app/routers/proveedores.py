@@ -8,10 +8,14 @@ from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
 )
+
 from app.repositories.usuario_repository import ProveedorRepository, get_proveedor_repo
 from app.repositories.catalogo_repository import ServicioProductoRepository, PaqueteRepository, get_servicio_producto_repo, get_paquete_repo
 from app.repositories.reserva_repository import ReservaRepository, get_reserva_repo
+from app.repositories.resena_repository import ResenaRepository, get_resena_repo
+from app.domain.resenas.schemas import MarketAnalyticsOut
 from app.services import proveedor_service
+from app.services import resena_service
 
 router = APIRouter()
 
@@ -55,6 +59,14 @@ def dashboard_stats(
     """Estadísticas del proveedor para su dashboard."""
     return proveedor_service.obtener_dashboard_stats(proveedor, servicio_repo, paquete_repo, reserva_repo)
 
+@router.get("/mi-market-analytics", response_model=MarketAnalyticsOut)
+def mi_market_analytics(
+    proveedor: Proveedor = Depends(get_current_proveedor),
+    resena_repo: ResenaRepository = Depends(get_resena_repo),
+    reserva_repo: ReservaRepository = Depends(get_reserva_repo),
+):
+    """Analytics de mercado del proveedor: calificaciones, top paquetes y reseñas recientes."""
+    return resena_service.obtener_market_analytics(proveedor, resena_repo, reserva_repo)
 
 @router.get("/{proveedor_id}", response_model=ProveedorOut)
 def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository = Depends(get_proveedor_repo)):
