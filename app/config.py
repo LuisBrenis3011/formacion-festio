@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LOCAL_CORS_ORIGINS = [
@@ -37,8 +37,9 @@ class Settings(BaseSettings):
         value = self.CORS_ALLOW_ORIGIN_REGEX.strip()
         return value or None
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
 
 settings = Settings()

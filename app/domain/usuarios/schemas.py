@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
-
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from app.domain.common.enums import EstadoBasico, EstadoVerificacion, RolUsuario
 
 
@@ -57,8 +56,7 @@ class UsuarioOut(BaseModel):
     estado: EstadoBasico
     fecha_registro: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginRequest(BaseModel):
@@ -113,8 +111,7 @@ class MeResponse(BaseModel):
     proveedor_id: Optional[int] = None
     nombre_empresa: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Cliente ───────────────────────────────────────────────────────────────────
@@ -129,8 +126,7 @@ class ClienteOut(BaseModel):
     usuario_id: int
     direccion: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Proveedor ─────────────────────────────────────────────────────────────────
@@ -167,8 +163,7 @@ class ProveedorOut(BaseModel):
     estado_verificacion: EstadoVerificacion
     capacidad_humana_total: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProveedorDashboardStats(BaseModel):
