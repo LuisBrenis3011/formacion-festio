@@ -1,17 +1,13 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domain.chat.schemas import ChatRequest
 from app.services.ia.ia_service import procesar_mensaje
 
-from app.core.limiter import limiter
-
 router = APIRouter()
 
 @router.post("/recomendar")
-@limiter.limit("20/minute")
 async def chat_recomendar(
-    request: Request,
     datos: ChatRequest,
     db: Session = Depends(get_db)
 ):

@@ -7,9 +7,9 @@ from app.domain.usuarios.models import Usuario
 from app.repositories.usuario_repository import UsuarioRepository
 
 
-def listar_usuarios(repo: UsuarioRepository, skip: int = 0, limit: int = 100) -> List[Usuario]:
+def listar_usuarios(repo: UsuarioRepository) -> List[Usuario]:
     """Retorna todos los usuarios registrados."""
-    return repo.get_all(skip=skip, limit=limit)
+    return repo.get_all()
 
 
 def obtener_usuario(usuario_id: int, repo: UsuarioRepository) -> Usuario:

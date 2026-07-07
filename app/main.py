@@ -7,13 +7,8 @@ from app.routers import (
     auth, usuarios, clientes, proveedores,
     personal, catalogo, paquetes, disponibilidad,
     reservas, pagos, notificaciones, resenas, chat,
-    proveedor_inventario, proveedor_paquetes, proveedor_reservas,
+    proveedor_inventario, proveedor_paquetes,
 )
-
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from app.core.limiter import limiter
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -37,9 +32,6 @@ async def add_private_network_cors_header(request, call_next):
     response.headers["Access-Control-Allow-Private-Network"] = "true"
     return response
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
 
 # Registrar routers
 app.include_router(auth.router,             prefix="/api/auth",             tags=["Autenticación"])
@@ -59,7 +51,6 @@ app.include_router(chat.router,             prefix="/api/chat",             tags
 # ── Routers B2B (Proveedor autenticado) ──────────────────────────────────────
 app.include_router(proveedor_inventario.router, prefix="/api/proveedor/inventario", tags=["Proveedor - Inventario"])
 app.include_router(proveedor_paquetes.router,   prefix="/api/proveedor/paquetes",   tags=["Proveedor - Paquetes"])
-app.include_router(proveedor_reservas.router, prefix="/api/proveedor/reservas", tags=["Proveedor - Reservas"])
 
 @app.get("/")
 def root():

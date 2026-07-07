@@ -1,12 +1,8 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_proveedor, require_role
-from app.database import get_db
-from app.domain.common.enums import RolUsuario
-from app.domain.resenas.schemas import MarketAnalyticsOut
+from app.core.dependencies import get_current_user, get_current_proveedor
 from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
@@ -22,16 +18,15 @@ router = APIRouter()
 @router.get("/", response_model=List[ProveedorOut])
 def listar_proveedores(
     distrito: Optional[str] = Query(None, description="Filtrar por distrito"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    repo: ProveedorRepository = Depends(get_proveedor_repo),
+    repo: ProveedorRepository = Depends(get_proveedor_repo)
 ):
-    return proveedor_service.listar_proveedores(distrito, repo, skip=skip, limit=limit)
+    """Lista todos los proveedores verificados. Filtra por distrito si se indica."""
+    return proveedor_service.listar_proveedores(distrito, repo)
 
 
 @router.get("/mi-perfil", response_model=ProveedorOut)
 def mi_perfil(
-    usuario: Usuario = Depends(require_role(RolUsuario.PROVEEDOR)),
+    usuario: Usuario = Depends(get_current_user),
     repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
     """Obtiene el perfil del proveedor logueado."""
@@ -41,7 +36,7 @@ def mi_perfil(
 @router.patch("/mi-perfil", response_model=ProveedorOut)
 def actualizar_mi_perfil(
     datos: ProveedorUpdate,
-    usuario: Usuario = Depends(require_role(RolUsuario.PROVEEDOR)),
+    usuario: Usuario = Depends(get_current_user),
     repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
     """Actualiza el perfil propio del proveedor."""
@@ -59,15 +54,6 @@ def dashboard_stats(
     return proveedor_service.obtener_dashboard_stats(proveedor, servicio_repo, paquete_repo, reserva_repo)
 
 
-@router.get("/mi-market-analytics", response_model=MarketAnalyticsOut)
-def market_analytics(
-    proveedor: Proveedor = Depends(get_current_proveedor),
-    db: Session = Depends(get_db),
-):
-    """Analíticas de mercado del proveedor: reseñas, top paquetes, reseñas recientes."""
-    return proveedor_service.obtener_market_analytics(proveedor, db)
-
-
 @router.get("/{proveedor_id}", response_model=ProveedorOut)
 def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository = Depends(get_proveedor_repo)):
     return proveedor_service.obtener_proveedor(proveedor_id, repo)
@@ -77,7 +63,7 @@ def obtener_proveedor(proveedor_id: int, repo: ProveedorRepository = Depends(get
 def crear_proveedor(
     datos: ProveedorCreate,
     repo: ProveedorRepository = Depends(get_proveedor_repo),
-    _: Usuario = Depends(require_role(RolUsuario.ADMIN))
+    _: Usuario = Depends(get_current_user)
 ):
     return proveedor_service.crear_proveedor(datos, repo)
 
@@ -87,7 +73,7 @@ def actualizar_proveedor(
     proveedor_id: int,
     datos: ProveedorUpdate,
     repo: ProveedorRepository = Depends(get_proveedor_repo),
-    _: Usuario = Depends(require_role(RolUsuario.ADMIN))
+    _: Usuario = Depends(get_current_user)
 ):
     """Endpoints administrativos."""
     return proveedor_service.actualizar_proveedor(proveedor_id, datos, repo)

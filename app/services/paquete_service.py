@@ -12,15 +12,14 @@ def listar_paquetes(
     proveedor_id: Optional[int],
     categoria_id: Optional[int],
     repo: PaqueteRepository,
-    skip: int = 0,
-    limit: int = 100,
 ) -> List[Paquete]:
+    """Lista paquetes activos con filtros opcionales."""
     query = repo.db.query(Paquete).filter(Paquete.estado == EstadoBasico.ACTIVO)
     if proveedor_id:
         query = query.filter(Paquete.proveedor_id == proveedor_id)
     if categoria_id:
         query = query.filter(Paquete.categoria_id == categoria_id)
-    return query.offset(skip).limit(limit).all()
+    return query.all()
 
 
 def obtener_paquete(paquete_id: int, repo: PaqueteRepository) -> Paquete:

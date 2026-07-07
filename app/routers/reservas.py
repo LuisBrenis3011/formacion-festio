@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.core.dependencies import get_current_user, get_optional_current_user
 from app.domain.usuarios.models import Usuario
@@ -21,12 +21,6 @@ from app.repositories.catalogo_repository import get_paquete_repo, get_servicio_
 from app.repositories.reserva_repository import get_evento_repo, get_reserva_repo, get_detalle_reserva_repo
 from app.repositories.pago_repository import get_pago_transaccion_repo
 from app.repositories.disponibilidad_repository import get_ocupacion_servicio_producto_repo, get_ocupacion_global_proveedor_repo
-
-from pydantic import BaseModel, Field
-from app.core.dependencies import get_current_user, get_optional_current_user, get_current_proveedor
-from app.domain.usuarios.models import Usuario, Proveedor
-from app.domain.common.enums import MetodoPago
-from app.repositories.pago_repository import get_pago_transaccion_repo
 
 router = APIRouter()
 
@@ -49,13 +43,9 @@ def obtener_evento(evento_id: int, evento_repo = Depends(get_evento_repo)):
 
 
 @router.get("/cliente/{cliente_id}", response_model=List[EventoOut])
-def eventos_por_cliente(
-    cliente_id: int,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    evento_repo = Depends(get_evento_repo),
-):
-    return evento_service.eventos_por_cliente(cliente_id, evento_repo, skip=skip, limit=limit)
+def eventos_por_cliente(cliente_id: int, evento_repo = Depends(get_evento_repo)):
+    """Historial de eventos de un cliente."""
+    return evento_service.eventos_por_cliente(cliente_id, evento_repo)
 
 
 # ── Reservas ──────────────────────────────────────────────────────────────────
@@ -148,8 +138,6 @@ def confirmar_reserva(
 
 @router.get("/mis-reservas", response_model=List[MisReservasItemOut])
 def mis_reservas(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
     usuario: Usuario = Depends(get_current_user),
     reserva_repo = Depends(get_reserva_repo),
     evento_repo = Depends(get_evento_repo),
@@ -158,9 +146,9 @@ def mis_reservas(
     paquete_repo = Depends(get_paquete_repo),
     servicio_repo = Depends(get_servicio_producto_repo),
 ):
+    """Historial de reservas del cliente autenticado."""
     return reserva_gestion_service.listar_mis_reservas(
-        usuario, reserva_repo, evento_repo, cliente_repo, proveedor_repo, paquete_repo, servicio_repo,
-        skip=skip, limit=limit,
+        usuario, reserva_repo, evento_repo, cliente_repo, proveedor_repo, paquete_repo, servicio_repo
     )
 
 
@@ -173,33 +161,7 @@ def obtener_reserva(reserva_id: int, reserva_repo = Depends(get_reserva_repo)):
 def cancelar_reserva(
     reserva_id: int,
     reserva_repo = Depends(get_reserva_repo),
-    usuario: Usuario = Depends(get_current_user),
+    _: int = Depends(get_current_user)
 ):
-    """Cancela una reserva confirmada sin ocultarla del historial."""
-    return reserva_gestion_service.cancelar_reserva(reserva_id, usuario, reserva_repo)
-
-class CompletarReservaRequest(BaseModel):
-    metodo_pago: MetodoPago = MetodoPago.EFECTIVO
-    codigo_transaccion: Optional[str] = Field(None, max_length=150)
-
-
-class CompletarReservaResponse(BaseModel):
-    reserva_id: int
-    estado: str
-    pago_id: int
-    monto_pagado: float
-    mensaje: str
-
-
-@router.patch("/{reserva_id}/completar", response_model=CompletarReservaResponse)
-def completar_reserva(
-    reserva_id: int,
-    datos: CompletarReservaRequest,
-    proveedor: Proveedor = Depends(get_current_proveedor),
-    reserva_repo = Depends(get_reserva_repo),
-    pago_repo = Depends(get_pago_transaccion_repo),
-):
-    """Solo el proveedor dueño puede marcar su reserva como completada."""
-    return reserva_gestion_service.completar_reserva(
-        reserva_id, datos.metodo_pago, datos.codigo_transaccion, proveedor, reserva_repo, pago_repo
-    )
+    """Cancela una reserva confirmada (soft delete)."""
+    return reserva_gestion_service.cancelar_reserva(reserva_id, reserva_repo)
