@@ -17,7 +17,7 @@ from app.domain.reservas.schemas import (
     ReservaCreate,
 )
 from app.core.security import hash_password, verify_password
-from app.services import bloqueo_service, disponibilidad_service
+from app.services import bloqueo_service, disponibilidad_service, proveedor_calendario_service
 from app.services.reserva import calculo_service
 
 from app.repositories.usuario_repository import ProveedorRepository, ClienteRepository, UsuarioRepository
@@ -39,6 +39,19 @@ def prebloquear_reserva(
     proveedor = proveedor_repo.get(datos.proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+
+    detalle_bloqueo_fecha = proveedor_calendario_service.detalle_fecha_bloqueada(
+        datos.proveedor_id,
+        datos.fecha_evento_inicio,
+    )
+    if detalle_bloqueo_fecha:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "La fecha del evento está bloqueada por el proveedor",
+                "items": [detalle_bloqueo_fecha],
+            },
+        )
 
     paquete = paquete_repo.db.query(Paquete).filter(
         Paquete.id == datos.paquete_id,
@@ -125,6 +138,19 @@ def confirmar_checkout_simulado(
     proveedor = proveedor_repo.get(bloqueado["proveedor_id"])
     if not proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+
+    detalle_bloqueo_fecha = proveedor_calendario_service.detalle_fecha_bloqueada(
+        bloqueado["proveedor_id"],
+        fecha_inicio,
+    )
+    if detalle_bloqueo_fecha:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "La fecha del evento fue bloqueada por el proveedor",
+                "items": [detalle_bloqueo_fecha],
+            },
+        )
 
     observaciones = _validar_disponibilidad_items(
         proveedor=proveedor,
@@ -355,6 +381,13 @@ def _validar_disponibilidad_items(
 ) -> list[str]:
     observaciones = []
     cantidades = calculo_service.agrupar_items(items_ocupacion)
+
+    detalle_bloqueo_fecha = proveedor_calendario_service.detalle_fecha_bloqueada(
+        proveedor.id,
+        inicio,
+    )
+    if detalle_bloqueo_fecha:
+        return [detalle_bloqueo_fecha]
 
     for servicio_id, cantidad in cantidades.items():
         servicio = servicio_repo.db.query(ServicioProducto).filter(
