@@ -20,6 +20,7 @@ from app.domain.reservas.schemas       import DetalleReservaCreate, Disponibilid
 from app.repositories.usuario_repository import ProveedorRepository
 from app.repositories.catalogo_repository import ServicioProductoRepository
 from app.repositories.disponibilidad_repository import OcupacionServicioProductoRepository, OcupacionGlobalProveedorRepository
+from app.services import proveedor_calendario_service
 
 
 def consultar_disponibilidad(
@@ -39,6 +40,17 @@ def consultar_disponibilidad(
     proveedor = proveedor_repo.get(proveedor_id)
     if not proveedor:
         return DisponibilidadResponse(disponible=False, mensaje="Proveedor no encontrado")
+
+    detalle_bloqueo = proveedor_calendario_service.detalle_fecha_bloqueada(
+        proveedor_id,
+        fecha_inicio,
+    )
+    if detalle_bloqueo:
+        return DisponibilidadResponse(
+            disponible=False,
+            mensaje="La fecha del evento está bloqueada por el proveedor",
+            items_no_disponibles=[detalle_bloqueo],
+        )
 
     items_no_disponibles: List[str] = []
     personas_requeridas = 0

@@ -8,6 +8,7 @@ from app.routers import (
     personal, catalogo, paquetes, disponibilidad,
     reservas, pagos, notificaciones, resenas, chat,
     proveedor_inventario, proveedor_paquetes,
+    proveedor_calendario, proveedor_reservas,
 )
 
 app = FastAPI(
@@ -51,6 +52,8 @@ app.include_router(chat.router,             prefix="/api/chat",             tags
 # ── Routers B2B (Proveedor autenticado) ──────────────────────────────────────
 app.include_router(proveedor_inventario.router, prefix="/api/proveedor/inventario", tags=["Proveedor - Inventario"])
 app.include_router(proveedor_paquetes.router,   prefix="/api/proveedor/paquetes",   tags=["Proveedor - Paquetes"])
+app.include_router(proveedor_calendario.router, prefix="/api/proveedor/calendario", tags=["Proveedor - Calendario"])
+app.include_router(proveedor_reservas.router,   prefix="/api/proveedor",            tags=["Proveedor - Operaciones"])
 
 @app.get("/")
 def root():
