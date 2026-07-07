@@ -21,3 +21,28 @@ class ResenaPublicaOut(BaseModel):
     nombre_usuario: str  # nombre del usuario que dejó la reseña
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Market Analytics (Proveedor) ──────────────────────────────────────────────
+
+class TopPaqueteOut(BaseModel):
+    paquete_id: int
+    nombre: str
+    ventas: int
+    porcentaje: int
+
+
+class ResenaRecienteOut(BaseModel):
+    id: int
+    cliente_nombre: str
+    calificacion: int
+    comentario: Optional[str] = None
+    fecha: str  # ISO 8601
+
+
+class MarketAnalyticsOut(BaseModel):
+    calificacion_promedio: float
+    total_resenas: int
+    distribucion_estrellas: dict[int, int]
+    top_paquetes: list[TopPaqueteOut]
+    resenas_recientes: list[ResenaRecienteOut]

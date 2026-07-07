@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
 from app.domain.usuarios.models import Usuario
-from app.domain.pagos.schemas import ResenaCreate, ResenaOut
+from app.domain.pagos.schemas import ResenaCreate, ResenaOut, ResenaUpdate
 from app.domain.resenas.schemas import ResenaPublicaCreate, ResenaPublicaOut
 from app.repositories.resena_repository import ResenaRepository, get_resena_repo
 from app.repositories.usuario_repository import ProveedorRepository, UsuarioRepository, get_proveedor_repo, get_usuario_repo
@@ -55,3 +55,15 @@ def crear_resena_publica(
         fecha=resena.fecha,
         nombre_usuario=nombre,
     )
+
+
+@router.patch("/{resena_id}", response_model=ResenaOut)
+def actualizar_resena(
+    resena_id: int,
+    datos: ResenaUpdate,
+    resena_repo: ResenaRepository = Depends(get_resena_repo),
+    proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo),
+    usuario: Usuario = Depends(get_current_user),
+):
+    """Edita una reseña existente (solo el autor puede modificarla)."""
+    return resena_service.actualizar_resena(resena_id, datos, usuario, resena_repo, proveedor_repo)

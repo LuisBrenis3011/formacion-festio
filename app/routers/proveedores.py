@@ -1,9 +1,12 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_proveedor, require_role
+from app.database import get_db
 from app.domain.common.enums import RolUsuario
+from app.domain.resenas.schemas import MarketAnalyticsOut
 from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
@@ -54,6 +57,15 @@ def dashboard_stats(
 ):
     """Estadísticas del proveedor para su dashboard."""
     return proveedor_service.obtener_dashboard_stats(proveedor, servicio_repo, paquete_repo, reserva_repo)
+
+
+@router.get("/mi-market-analytics", response_model=MarketAnalyticsOut)
+def market_analytics(
+    proveedor: Proveedor = Depends(get_current_proveedor),
+    db: Session = Depends(get_db),
+):
+    """Analíticas de mercado del proveedor: reseñas, top paquetes, reseñas recientes."""
+    return proveedor_service.obtener_market_analytics(proveedor, db)
 
 
 @router.get("/{proveedor_id}", response_model=ProveedorOut)
