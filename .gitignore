@@ -22,3 +22,9 @@ plan-despliegue.md
 configurar-payment-webhook-secret.md
 
 Tareas-festio.md
+
+db/init.sql
+
+docker-compose.yml
+
+start-db.ps1

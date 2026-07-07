@@ -8,11 +8,10 @@ from app.domain.pagos.schemas import NotificacionCreate
 from app.repositories.notificacion_repository import NotificacionRepository
 
 
-def listar_notificaciones_usuario(usuario_id: int, repo: NotificacionRepository) -> List[Notificacion]:
-    """Lista todas las notificaciones de un usuario ordenadas por fecha."""
+def listar_notificaciones_usuario(usuario_id: int, repo: NotificacionRepository, skip: int = 0, limit: int = 100) -> List[Notificacion]:
     return repo.db.query(Notificacion).filter(
         Notificacion.usuario_id == usuario_id
-    ).order_by(Notificacion.fecha_envio.desc()).all()
+    ).order_by(Notificacion.fecha_envio.desc()).offset(skip).limit(limit).all()
 
 
 def marcar_leida(notificacion_id: int, usuario_id: int, repo: NotificacionRepository) -> dict:

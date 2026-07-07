@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ResenaPublicaCreate(BaseModel):
@@ -20,5 +20,27 @@ class ResenaPublicaOut(BaseModel):
     fecha: datetime
     nombre_usuario: str  # nombre del usuario que dejó la reseña
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TopPaqueteOut(BaseModel):
+    paquete_id: int
+    nombre: str
+    ventas: int
+    porcentaje: float
+
+
+class ResenaRecienteOut(BaseModel):
+    id: int
+    cliente_nombre: str
+    calificacion: int
+    comentario: Optional[str] = None
+    fecha: datetime
+
+
+class MarketAnalyticsOut(BaseModel):
+    calificacion_promedio: float
+    total_resenas: int
+    distribucion_estrellas: Dict[int, int]
+    top_paquetes: List[TopPaqueteOut]
+    resenas_recientes: List[ResenaRecienteOut]

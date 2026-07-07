@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_proveedor
 from app.domain.personal.schemas import PersonalCreate, PersonalUpdate, PersonalOut
@@ -17,9 +17,13 @@ router = APIRouter()
 
 
 @router.get("/proveedor/{proveedor_id}", response_model=List[PersonalOut])
-def listar_personal(proveedor_id: int, repo: PersonalRepository = Depends(get_personal_repo)):
-    """Lista todo el personal activo de un proveedor específico."""
-    return personal_service.listar_personal_proveedor(proveedor_id, repo)
+def listar_personal(
+    proveedor_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    repo: PersonalRepository = Depends(get_personal_repo),
+):
+    return personal_service.listar_personal_proveedor(proveedor_id, repo, skip=skip, limit=limit)
 
 
 @router.get("/{personal_id}", response_model=PersonalOut)

@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.domain.common.enums import EstadoBasico, RolPersonal
 
@@ -17,8 +17,7 @@ class PersonalRolOut(BaseModel):
     precio_por_rol: float
     rol_principal: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PersonalCreate(BaseModel):
@@ -42,6 +41,5 @@ class PersonalOut(BaseModel):
     estado: EstadoBasico
     roles: List[PersonalRolOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 

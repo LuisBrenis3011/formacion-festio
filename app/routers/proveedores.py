@@ -1,17 +1,23 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_proveedor, require_role
+from app.database import get_db
 from app.domain.common.enums import RolUsuario
+from app.domain.resenas.schemas import MarketAnalyticsOut
 from app.domain.usuarios.models import Proveedor, Usuario
 from app.domain.usuarios.schemas import (
     ProveedorCreate, ProveedorUpdate, ProveedorOut, ProveedorDashboardStats,
 )
+
 from app.repositories.usuario_repository import ProveedorRepository, get_proveedor_repo
 from app.repositories.catalogo_repository import ServicioProductoRepository, PaqueteRepository, get_servicio_producto_repo, get_paquete_repo
 from app.repositories.reserva_repository import ReservaRepository, get_reserva_repo
+from app.repositories.resena_repository import ResenaRepository, get_resena_repo
 from app.services import proveedor_service
+from app.services import resena_service
 
 router = APIRouter()
 
@@ -19,10 +25,11 @@ router = APIRouter()
 @router.get("/", response_model=List[ProveedorOut])
 def listar_proveedores(
     distrito: Optional[str] = Query(None, description="Filtrar por distrito"),
-    repo: ProveedorRepository = Depends(get_proveedor_repo)
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    repo: ProveedorRepository = Depends(get_proveedor_repo),
 ):
-    """Lista todos los proveedores verificados. Filtra por distrito si se indica."""
-    return proveedor_service.listar_proveedores(distrito, repo)
+    return proveedor_service.listar_proveedores(distrito, repo, skip=skip, limit=limit)
 
 
 @router.get("/mi-perfil", response_model=ProveedorOut)
@@ -53,6 +60,15 @@ def dashboard_stats(
 ):
     """Estadísticas del proveedor para su dashboard."""
     return proveedor_service.obtener_dashboard_stats(proveedor, servicio_repo, paquete_repo, reserva_repo)
+
+@router.get("/mi-market-analytics", response_model=MarketAnalyticsOut)
+def mi_market_analytics(
+    proveedor: Proveedor = Depends(get_current_proveedor),
+    resena_repo: ResenaRepository = Depends(get_resena_repo),
+    reserva_repo: ReservaRepository = Depends(get_reserva_repo),
+):
+    """Analytics de mercado del proveedor: calificaciones, top paquetes y reseñas recientes."""
+    return resena_service.obtener_market_analytics(proveedor, resena_repo, reserva_repo)
 
 
 @router.get("/{proveedor_id}", response_model=ProveedorOut)

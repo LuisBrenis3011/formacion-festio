@@ -1,10 +1,10 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
 from app.domain.usuarios.models import Usuario
-from app.domain.pagos.schemas import ResenaCreate, ResenaOut
+from app.domain.pagos.schemas import ResenaCreate, ResenaOut, ResenaUpdate
 from app.domain.resenas.schemas import ResenaPublicaCreate, ResenaPublicaOut
 from app.repositories.resena_repository import ResenaRepository, get_resena_repo
 from app.repositories.usuario_repository import ProveedorRepository, UsuarioRepository, get_proveedor_repo, get_usuario_repo
@@ -17,11 +17,12 @@ router = APIRouter()
 @router.get("/proveedor/{proveedor_id}", response_model=List[ResenaPublicaOut])
 def reseñas_proveedor(
     proveedor_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     resena_repo: ResenaRepository = Depends(get_resena_repo),
-    usuario_repo: UsuarioRepository = Depends(get_usuario_repo)
+    usuario_repo: UsuarioRepository = Depends(get_usuario_repo),
 ):
-    """Lista todas las reseñas de un proveedor (público, con nombre de usuario)."""
-    return resena_service.listar_resenas_publicas(proveedor_id, resena_repo, usuario_repo)
+    return resena_service.listar_resenas_publicas(proveedor_id, resena_repo, usuario_repo, skip=skip, limit=limit)
 
 
 @router.post("/", response_model=ResenaOut, status_code=201)
@@ -54,3 +55,15 @@ def crear_resena_publica(
         fecha=resena.fecha,
         nombre_usuario=nombre,
     )
+
+
+@router.patch("/{resena_id}", response_model=ResenaOut)
+def actualizar_resena(
+    resena_id: int,
+    datos: ResenaUpdate,
+    resena_repo: ResenaRepository = Depends(get_resena_repo),
+    proveedor_repo: ProveedorRepository = Depends(get_proveedor_repo),
+    usuario: Usuario = Depends(get_current_user),
+):
+    """Edita una reseña existente (solo el autor puede modificarla)."""
+    return resena_service.actualizar_resena(resena_id, datos, usuario, resena_repo, proveedor_repo)

@@ -1,6 +1,5 @@
 from typing import List
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import require_role
 from app.domain.common.enums import RolUsuario
@@ -14,11 +13,13 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ClienteOut])
 def listar_clientes(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     repo: ClienteRepository = Depends(get_cliente_repo),
     _: Usuario = Depends(require_role(RolUsuario.ADMIN)),
 ):
     # El alta publica de clientes vive en /api/auth/registro; este CRUD queda para uso administrativo.
-    return cliente_service.listar_clientes(repo)
+    return cliente_service.listar_clientes(repo, skip=skip, limit=limit)
 
 
 @router.get("/{cliente_id}", response_model=ClienteOut)

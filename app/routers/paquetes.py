@@ -23,10 +23,11 @@ router = APIRouter()
 def listar_paquetes(
     proveedor_id: Optional[int] = Query(None, description="Filtrar por ID de proveedor"),
     categoria_id: Optional[int] = Query(None, description="Filtrar por ID de categoría"),
-    repo: PaqueteRepository = Depends(get_paquete_repo)
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    repo: PaqueteRepository = Depends(get_paquete_repo),
 ):
-    """Lista paquetes activos. Opcionalmente filtra por proveedor o categoría."""
-    return paquete_service.listar_paquetes(proveedor_id, categoria_id, repo)
+    return paquete_service.listar_paquetes(proveedor_id, categoria_id, repo, skip=skip, limit=limit)
 
 
 @router.get("/{paquete_id}", response_model=PaqueteOut)
